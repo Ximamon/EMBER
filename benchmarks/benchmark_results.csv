@@ -1,0 +1,1 @@
+timestamp_utc,width,height,max_steps,scenarios,seed,repetition,cell_updates,initialization_seconds,simulation_seconds,total_core_seconds,throughput_cell_updates_per_second,mean_scenario_seconds,mean_burned_percent,completed_scenarios,extinguished_scenarios,max_steps_scenarios,executable
