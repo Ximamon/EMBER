@@ -40,7 +40,7 @@ public:
     /**
      * @brief Performs a single simulation step.
      * @param step_index The index of the current step.
-     * @return The number of cells that changed state.
+     * @return The total number of cells currently burning.
      */
     std::size_t step(std::size_t step_index);
 
@@ -61,8 +61,8 @@ public:
      */
     const GridBuffers& grid() const noexcept { return grid_; }
     /**
-     * @brief Gets the scenario ID for the simulation.
-     * @return The scenario ID.
+     * @brief Gets the scenario seed for the simulation.
+     * @return The scenario seed.
      */
     std::uint64_t seed() const noexcept { return scenario_seed_; }
 
@@ -72,6 +72,10 @@ public:
      * @param target_fuel The fuel load of the target cell.
      * @param target_moisture The moisture content of the target cell.
      * @param target_vegetation The vegetation type of the target cell.
+     * @param target_elevation The elevation of the target cell.
+     * @param neighbor_elevation The elevation of the neighbor cell.
+     * @param delta_x The difference in x coordinates.
+     * @param delta_y The difference in y coordinates.
      * @return The ignition probability for the neighbor cell.
      */
     static float neighbor_ignition_probability(

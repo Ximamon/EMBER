@@ -15,6 +15,12 @@
 
 namespace ember {
 
+/**
+ * @brief Runs a batch of simulation scenarios based on the provided configuration.
+ * 
+ * @param config The simulation configuration parameters.
+ * @return BatchStatistics The aggregated statistics for all scenarios in the batch.
+ */
 BatchStatistics run_batch(const SimulationConfig& config);
 
 } // namespace ember

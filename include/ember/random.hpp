@@ -33,7 +33,7 @@ constexpr std::uint64_t mix64(std::uint64_t value) noexcept {
  * 
  * @param seed The seed value.
  * @param value The value to combine.
- * @return constexpr std::uint64_t 
+ * @return The combined hash value.
  */
 constexpr std::uint64_t hash_combine(std::uint64_t seed, std::uint64_t value) noexcept {
     return mix64(seed ^ mix64(value + 0x517cc1b727220a95ULL));
@@ -44,7 +44,7 @@ constexpr std::uint64_t hash_combine(std::uint64_t seed, std::uint64_t value) no
  * 
  * @param global_seed The global seed value.
  * @param scenario_id The scenario ID.
- * @return constexpr std::uint64_t 
+ * @return The generated scenario seed.
  */
 constexpr std::uint64_t scenario_seed(std::uint64_t global_seed, std::uint64_t scenario_id) noexcept {
     return hash_combine(global_seed, scenario_id);
@@ -57,7 +57,7 @@ constexpr std::uint64_t scenario_seed(std::uint64_t global_seed, std::uint64_t s
  * @param tag The tag value.
  * @param first The first value to hash.
  * @param second The second value to hash.
- * @return constexpr std::uint64_t 
+ * @return The generated keyed hash.
  */
 constexpr std::uint64_t keyed_hash(
     std::uint64_t seed,
@@ -71,7 +71,7 @@ constexpr std::uint64_t keyed_hash(
  * @brief Generates a uniform random number in the range [0, 1).
  * 
  * @param bits The bits to use for generating the random number.
- * @return inline double 
+ * @return A double in the range [0, 1).
  */
 inline double uniform01(std::uint64_t bits) noexcept {
     return static_cast<double>(bits >> 11U) * 0x1.0p-53;
@@ -83,19 +83,29 @@ inline double uniform01(std::uint64_t bits) noexcept {
  * @param bits The bits to use for generating the random number.
  * @param minimum The minimum value of the range.
  * @param maximum The maximum value of the range.
- * @return inline float 
+ * @return A float in the specified range.
  */
 inline float uniform_range(std::uint64_t bits, float minimum, float maximum) noexcept {
     return minimum + static_cast<float>(uniform01(bits)) * (maximum - minimum);
 }
 
+/**
+ * @namespace random_tag
+ * @brief Contains tags used for keyed hashing to ensure unique random streams for different simulation aspects.
+ */
 namespace random_tag {
-constexpr std::uint64_t fuel = 0x4655454cULL;
-constexpr std::uint64_t moisture = 0x4d4f4953ULL;
-constexpr std::uint64_t vegetation = 0x56454745ULL;
-constexpr std::uint64_t elevation = 0x454c4556ULL;
-constexpr std::uint64_t non_combustible = 0x4e4f4e43ULL;
-constexpr std::uint64_t spread = 0x53505244ULL;
+    /// @brief Tag for fuel random number generation.
+    constexpr std::uint64_t fuel = 0x4655454cULL;
+    /// @brief Tag for moisture random number generation.
+    constexpr std::uint64_t moisture = 0x4d4f4953ULL;
+    /// @brief Tag for vegetation random number generation.
+    constexpr std::uint64_t vegetation = 0x56454745ULL;
+    /// @brief Tag for elevation random number generation.
+    constexpr std::uint64_t elevation = 0x454c4556ULL;
+    /// @brief Tag for non-combustible cell random number generation.
+    constexpr std::uint64_t non_combustible = 0x4e4f4e43ULL;
+    /// @brief Tag for fire spread random number generation.
+    constexpr std::uint64_t spread = 0x53505244ULL;
 } // namespace random_tag
 
 } // namespace ember

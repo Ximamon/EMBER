@@ -38,7 +38,7 @@ struct CliOptions {
  * @throws std::out_of_range If a value is out of the expected range for a given option.
  * @throws std::overflow_error If a value exceeds the maximum representable value for its type.
  * @throws std::runtime_error If an error occurs while parsing the command-line arguments.
- * @return CliOptions 
+ * @return CliOptions The parsed command-line options.
  */
 CliOptions parse_cli(int argc, const char* const argv[]);
 
