@@ -72,7 +72,6 @@ The script performs one warm-up and five measured repetitions for each defined w
 
 ## Documentation
 
-- [Architecture Guide](docs/architecture.md)
 - [Simplified propagation model](docs/model.md)
 - [CUDA readiness notes](docs/cuda-readiness.md)
 
