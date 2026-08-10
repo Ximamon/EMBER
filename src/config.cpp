@@ -17,10 +17,22 @@
 namespace ember {
 namespace {
 
+/**
+ * @brief Checks if a float value is within the [0.0, 1.0] interval.
+ * @param value The value to check.
+ * @return True if the value is finite and in the interval, false otherwise.
+ */
 bool in_unit_interval(float value) {
     return std::isfinite(value) && value >= 0.0F && value <= 1.0F;
 }
 
+/**
+ * @brief Validates that a minimum and maximum value form a valid, finite range.
+ * @param minimum The lower bound.
+ * @param maximum The upper bound.
+ * @param name The name of the property (for error reporting).
+ * @throws std::invalid_argument If the range is invalid.
+ */
 void validate_range(float minimum, float maximum, const char* name) {
     if (!std::isfinite(minimum) || !std::isfinite(maximum) || minimum > maximum) {
         throw std::invalid_argument(std::string(name) + " range is invalid");
@@ -33,6 +45,8 @@ std::size_t checked_cell_count(const SimulationConfig& config) {
     if (config.width == 0 || config.height == 0) {
         throw std::invalid_argument("grid width and height must be greater than zero");
     }
+    // We divide instead of multiply to prevent integer overflow from occurring 
+    // before the comparison can take place (width * height > MAX).
     if (config.width > std::numeric_limits<std::size_t>::max() / config.height) {
         throw std::invalid_argument("grid dimensions overflow the addressable cell count");
     }
@@ -47,6 +61,8 @@ void validate_config(const SimulationConfig& config) {
     if (config.scenarios == 0) {
         throw std::invalid_argument("scenarios must be greater than zero");
     }
+    // Same logic as above: prevent overflow when calculating total cell updates 
+    // for the entire scenario, as this is used for performance metrics later.
     if (cell_count > std::numeric_limits<std::uint64_t>::max() / config.max_steps) {
         throw std::invalid_argument("cell update count overflows 64-bit statistics");
     }

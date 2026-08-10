@@ -46,6 +46,8 @@ void finalize_batch_statistics(BatchStatistics& statistics) {
     } else {
         statistics.mean_scenario_seconds = 0.0;
     }
+    // Throughput is calculated using ONLY simulation_seconds (excluding initialization) 
+    // to isolate the performance of the core computational engine.
     statistics.throughput_cell_updates_per_second =
         statistics.total_simulation_seconds > 0.0
             ? static_cast<double>(statistics.total_cell_updates) / statistics.total_simulation_seconds

@@ -18,6 +18,13 @@
 namespace ember {
 namespace {
 
+/**
+ * @brief Opens an output file stream, creating parent directories if necessary.
+ * @param path The path to the file.
+ * @param mode The IO mode (default is out).
+ * @return The opened output file stream.
+ * @throws std::runtime_error If the file could not be opened.
+ */
 std::ofstream open_output(const std::filesystem::path& path, std::ios::openmode mode = std::ios::out) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
@@ -51,6 +58,8 @@ void export_grid_csv(const std::filesystem::path& path, ConstGridView grid) {
 void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid) {
     auto output = open_output(path, std::ios::out | std::ios::binary);
     output << "P6\n" << grid.width << ' ' << grid.height << "\n255\n";
+    // Generate the PPM pixel data. We map CellState enum values to specific RGB 
+    // colors for visual differentiation: Unburned (Green), Burning (Orange), etc.
     for (std::size_t index = 0; index < grid.width * grid.height; ++index) {
         unsigned char color[3]{};
         switch (grid.state[index]) {
