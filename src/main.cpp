@@ -1,3 +1,13 @@
+/**
+ * @file main.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Main entry point for the EMBER fire simulation.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/cli.hpp"
 #include "ember/runner.hpp"
 
@@ -6,6 +16,7 @@
 #include <iostream>
 
 int main(int argc, const char* argv[]) {
+    // Parse arguments first; if the user requests help or provides invalid input, the program terminates early without allocating resources.
     try {
         const auto options = ember::parse_cli(argc, argv);
         if (options.show_help) {
@@ -13,6 +24,7 @@ int main(int argc, const char* argv[]) {
             return 0;
         }
 
+        // Execute the full simulation batch. This is a blocking operation that processes all scenarios sequentially.
         const auto statistics = ember::run_batch(options.config);
         std::cout << "EMBER CPU baseline\n"
                   << "Grid: " << options.config.width << " x " << options.config.height << '\n'
@@ -38,6 +50,7 @@ int main(int argc, const char* argv[]) {
         }
         return 0;
     } catch (const std::exception& error) {
+        // Catch all standard exceptions to ensure graceful termination and provide meaningful error messages instead of a raw crash.
         std::cerr << "EMBER error: " << error.what() << "\nUse --help for usage.\n";
         return 2;
     }

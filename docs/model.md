@@ -10,26 +10,46 @@ The model inspects the eight-cell Moore neighborhood. Out-of-bounds neighbors ar
 
 ## Ignition probability
 
-For every burning neighbor, a contribution is computed from the target cell's fuel, moisture and vegetation; wind alignment; elevation difference; and neighbor distance:
+For every burning neighbor $j \in \mathcal{N}_i$, an ignition probability contribution $p_{j \to i}$ is computed from the target cell $i$'s fuel ($M_{\text{fuel}}$), moisture ($M_{\text{moisture}}$), and vegetation ($M_{\text{veg}}$); wind alignment; elevation difference; and neighbor distance:
 
-```text
-moisture_factor = 1 - 0.8 * moisture
-wind_factor     = clamp(1 + wind_strength * alignment, 0.25, 2.0)
-slope           = clamp((target_elevation - neighbor_elevation) / slope_scale, -1, 1)
-slope_factor    = clamp(1 + 0.5 * slope, 0.5, 1.5)
-distance_factor = 1 for cardinal neighbors, 1/sqrt(2) for diagonals
+$$
+f_{\text{moisture}} = 1 - 0.8 \cdot \text{clamp}(M_{\text{moisture}}, 0, 1)
+$$
 
-p_neighbor = clamp(base_spread * fuel * vegetation * moisture_factor *
-                   wind_factor * slope_factor * distance_factor, 0, 1)
-```
+$$
+f_{\text{wind}} = \text{clamp}\left(1 + U_{\text{wind}} \cdot \mathbf{a}, \, 0.25, \, 2.0\right)
+$$
 
-`alignment` is the dot product between the unit vector from the burning neighbor to the target and the wind vector. Contributions are combined as independent opportunities:
+$$
+S = \text{clamp}\left(\frac{E_i - E_j}{S_{\text{scale}}}, \, -1.0, \, 1.0\right)
+$$
 
-```text
-p_total = 1 - product(1 - p_neighbor)
-```
+$$
+f_{\text{slope}} = \text{clamp}\left(1 + 0.5 \cdot S, \, 0.5, \, 1.5\right)
+$$
 
-One stateless random draw keyed by scenario, step and target cell decides ignition. A burning cell loses `burn_rate` fuel per step and becomes `Burned` at zero. A newly burning cell starts consuming fuel on its next step.
+$$
+f_{\text{distance}} = \begin{cases}
+1.0 & \text{for cardinal neighbors } (\Delta x \cdot \Delta y = 0) \\
+\frac{1}{\sqrt{2}} \approx 0.7071 & \text{for diagonal neighbors } (\Delta x \cdot \Delta y \neq 0)
+\end{cases}
+$$
+
+The single-neighbor ignition probability $p_{j \to i}$ is given by:
+
+$$
+p_{j \to i} = \text{clamp}\Big(P_{\text{base}} \cdot M_{\text{fuel}} \cdot M_{\text{veg}} \cdot f_{\text{moisture}} \cdot f_{\text{wind}} \cdot f_{\text{slope}} \cdot f_{\text{distance}}, \, 0, \, 1\Big)
+$$
+
+Where the wind alignment $\mathbf{a} = \hat{\mathbf{d}} \cdot \hat{\mathbf{w}}$ is the dot product between the propagation direction unit vector $\hat{\mathbf{d}}$ (from burning neighbor $j$ to target $i$) and the global wind vector $\hat{\mathbf{w}} = (\cos \theta, \sin \theta)$.
+
+Contributions from all burning neighbors $j \in \mathcal{N}_{\text{burning}}$ are combined as independent events:
+
+$$
+P_{\text{total}}(i) = 1 - \prod_{j \in \mathcal{N}_{\text{burning}}} \left(1 - p_{j \to i}\right)
+$$
+
+One stateless random draw $U \sim \text{Uniform}(0, 1)$ keyed by `(scenario_seed, step_index, cell_index)` decides ignition ($U < P_{\text{total}}(i)$). A burning cell loses $R_{\text{burn}}$ fuel per step and becomes `Burned` when fuel reaches $0$. A newly burning cell starts consuming fuel on its next step.
 
 ## Synthetic terrain
 

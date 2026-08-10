@@ -1,3 +1,13 @@
+/**
+ * @file simulation.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Implementation of the wildfire simulation.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/simulation.hpp"
 
 #include "ember/random.hpp"
@@ -14,10 +24,20 @@ namespace {
 constexpr float pi = 3.14159265358979323846F;
 constexpr float inverse_sqrt_two = 0.70710678118654752440F;
 
+/**
+ * @brief Clamps a floating-point value to the range [0.0, 1.0].
+ * @param value The value to clamp.
+ * @return The clamped value.
+ */
 float clamp01(float value) {
     return std::clamp(value, 0.0F, 1.0F);
 }
 
+/**
+ * @brief Safely casts a size_t to a uint64_t.
+ * @param value The value to cast.
+ * @return The 64-bit unsigned integer representation.
+ */
 std::uint64_t as_u64(std::size_t value) {
     return static_cast<std::uint64_t>(value);
 }
@@ -41,6 +61,8 @@ void WildfireSimulation::initialize() {
     const auto count = grid_.cell_count();
 
     for (std::size_t index = 0; index < count; ++index) {
+        // We use keyed hashing to ensure that fuel, moisture, and vegetation 
+        // get independent pseudo-random streams, even though they share the same seed and index.
         const auto key = as_u64(index);
         const float fuel = uniform_range(
             keyed_hash(scenario_seed_, random_tag::fuel, key), config_.min_fuel, config_.max_fuel);
@@ -84,16 +106,26 @@ float WildfireSimulation::neighbor_ignition_probability(
     float neighbor_elevation,
     int delta_x,
     int delta_y) {
+    // Diagonal neighbors are further away (sqrt(2) distance), so their influence is reduced.
     const bool diagonal = delta_x != 0 && delta_y != 0;
     const float distance_factor = diagonal ? inverse_sqrt_two : 1.0F;
+    
     const float direction_x = static_cast<float>(delta_x) * distance_factor;
     const float direction_y = static_cast<float>(-delta_y) * distance_factor;
     const float radians = config.wind_direction_degrees * pi / 180.0F;
+    
+    // Dot product between wind direction and fire propagation direction.
+    // Positive alignment means wind blows towards the target; negative means against it.
     const float alignment = direction_x * std::cos(radians) + direction_y * std::sin(radians);
     const float wind_factor = std::clamp(1.0F + config.wind_strength * alignment, 0.25F, 2.0F);
+    
+    // Fire travels faster uphill (positive slope) and slower downhill (negative slope).
     const float slope = std::clamp((target_elevation - neighbor_elevation) / config.slope_scale, -1.0F, 1.0F);
     const float slope_factor = std::clamp(1.0F + 0.5F * slope, 0.5F, 1.5F);
+    
     const float moisture_factor = 1.0F - 0.8F * clamp01(target_moisture);
+    
+    // The final probability is the product of all environmental modifiers.
     return clamp01(config.base_spread * clamp01(target_fuel) * target_vegetation *
                    moisture_factor * wind_factor * slope_factor * distance_factor);
 }
@@ -104,10 +136,14 @@ float WildfireSimulation::neighbor_probability(
     std::size_t neighbor_index,
     int delta_x,
     int delta_y) const {
+    // Diagonal neighbors are further away (sqrt(2) distance), so their influence is reduced.
     const bool diagonal = delta_x != 0 && delta_y != 0;
     const float distance_factor = diagonal ? inverse_sqrt_two : 1.0F;
     const float direction_x = static_cast<float>(delta_x) * distance_factor;
     const float direction_y = static_cast<float>(-delta_y) * distance_factor;
+    
+    // Dot product using precalculated wind vectors (wind_x_, wind_y_) 
+    // to avoid expensive trigonometric functions (cos, sin) in the hot loop.
     const float alignment = direction_x * wind_x_ + direction_y * wind_y_;
     const float wind_factor = std::clamp(1.0F + config_.wind_strength * alignment, 0.25F, 2.0F);
     const float slope = std::clamp(
@@ -147,6 +183,9 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
                 continue;
             }
 
+            // Calculate the probability of the target cell IGNITING from any of its burning neighbors.
+            // We use the independent probability rule: P(ignites) = 1 - P(does NOT ignite from ANY neighbor).
+            // P(does NOT ignite from ANY) = Product of (1 - P(ignite from neighbor i)).
             double probability_not_ignited = 1.0;
             for (int row_offset = -1; row_offset <= 1; ++row_offset) {
                 for (int column_offset = -1; column_offset <= 1; ++column_offset) {
@@ -195,6 +234,8 @@ ScenarioStatistics WildfireSimulation::run() {
 
     std::size_t burning_cells = 1;
     const auto simulation_start = clock::now();
+    
+    // Main simulation loop: process steps until the fire extinguishes naturally or we hit the maximum allowed steps.
     for (std::size_t step_index = 0; step_index < config_.max_steps; ++step_index) {
         burning_cells = step(step_index);
         statistics.steps_executed = step_index + 1;
@@ -209,6 +250,7 @@ ScenarioStatistics WildfireSimulation::run() {
         statistics.termination = TerminationReason::MaxSteps;
     }
 
+    // Post-simulation analysis: sweep the final grid state to tally up the damage and remaining cells.
     const auto count = grid_.cell_count();
     const auto view = static_cast<const GridBuffers&>(grid_).current_view();
     for (std::size_t index = 0; index < count; ++index) {
@@ -223,6 +265,7 @@ ScenarioStatistics WildfireSimulation::run() {
         }
     }
 
+    // Calculate performance metrics (throughput and core time) for benchmarking.
     statistics.cell_updates = static_cast<std::uint64_t>(count) *
                               static_cast<std::uint64_t>(statistics.steps_executed);
     statistics.burned_percent = 100.0 * static_cast<double>(statistics.burned_cells) /
