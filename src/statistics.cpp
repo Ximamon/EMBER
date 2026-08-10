@@ -1,3 +1,13 @@
+/**
+ * @file statistics.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Implementation of the simulation statistics.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/statistics.hpp"
 
 namespace ember {

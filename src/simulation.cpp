@@ -1,3 +1,13 @@
+/**
+ * @file simulation.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Implementation of the wildfire simulation.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/simulation.hpp"
 
 #include "ember/random.hpp"

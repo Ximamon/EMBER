@@ -1,3 +1,13 @@
+/**
+ * @file export.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Implementation of the export functionality.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/export.hpp"
 
 #include <fstream>
