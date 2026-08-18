@@ -1,13 +1,15 @@
 var searchData=
 [
-  ['ignition_20probability_0',['Ignition probability',['../md_docs_2model.html#autotoc_md17',1,'']]],
-  ['ignitionpoint_1',['IgnitionPoint',['../structember_1_1IgnitionPoint.html',1,'ember']]],
-  ['ignitions_2',['ignitions',['../structember_1_1SimulationConfig.html#a567ba88f93637a06bfb59b570b0dc7dc',1,'ember::SimulationConfig']]],
-  ['in_5funit_5finterval_3',['in_unit_interval',['../namespaceember_1_1anonymous__namespace_02config_8cpp_03.html#adb62f47f42a73d8be19919ad74258b2a',1,'ember::anonymous_namespace{config.cpp}']]],
-  ['initialization_20and_20cli_20main_20cpp_4',['Step 1: Initialization and CLI (&lt;span class=&quot;tt&quot;&gt;main.cpp&lt;/span&gt;)',['../md_docs_2architecture.html#autotoc_md6',1,'']]],
-  ['initialization_5fseconds_5',['initialization_seconds',['../structember_1_1ScenarioStatistics.html#ad4e7eff85426227b53c2f69a847ca61f',1,'ember::ScenarioStatistics']]],
-  ['initialize_6',['initialize',['../classember_1_1WildfireSimulation.html#a6ba4938774bf7468a33608f8bdf9f01a',1,'ember::WildfireSimulation']]],
-  ['initialized_5f_7',['initialized_',['../classember_1_1WildfireSimulation.html#aa04ad3fa6f2ff2af10759e74cab4c393',1,'ember::WildfireSimulation']]],
-  ['inverse_5fsqrt_5ftwo_8',['inverse_sqrt_two',['../namespaceember_1_1anonymous__namespace_02simulation_8cpp_03.html#ab2c399bcd5a6bc493430469d24c0ec8e',1,'ember::anonymous_namespace{simulation.cpp}']]],
-  ['issues_9',['Expected issues',['../md_docs_2cuda-readiness.html#autotoc_md14',1,'']]]
+  ['parse_5fcli_0',['parse_cli',['../namespaceember.html#a2026626284c7d25df14bb6d4eb99f2bc',1,'ember']]],
+  ['parse_5fexport_5fformat_1',['parse_export_format',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#a4e0c51d0419719e0334d5ff75816fca7',1,'ember::anonymous_namespace{cli.cpp}']]],
+  ['parse_5ffloat_2',['parse_float',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#a8f5cfd23988d695499ebcbd9b9b9aa25',1,'ember::anonymous_namespace{cli.cpp}']]],
+  ['parse_5fignition_3',['parse_ignition',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#ae10fdf53e3a324c46090837a39598c21',1,'ember::anonymous_namespace{cli.cpp}']]],
+  ['parse_5fsize_4',['parse_size',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#afd8bcf4b5c7a9a006cfa4d255f962f10',1,'ember::anonymous_namespace{cli.cpp}']]],
+  ['parse_5fu64_5',['parse_u64',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#aa40b5da433160af11ed1ac8394dc1e62',1,'ember::anonymous_namespace{cli.cpp}']]],
+  ['pi_6',['pi',['../namespaceember_1_1anonymous__namespace_02simulation_8cpp_03.html#acd0bc4aab6060948a1c21502c459c934',1,'ember::anonymous_namespace{simulation.cpp}']]],
+  ['ppm_7',['Ppm',['../namespaceember.html#a6c81d01a34184af898a01b1ed4b72738a122486fab5ec1c7b75c1ba32ae9eaa24',1,'ember']]],
+  ['print_5fhelp_8',['print_help',['../namespaceember.html#ae60684235e0a8911e1dc4cb554c6ede9',1,'ember']]],
+  ['prng_9',['Synthetic terrain and stateless PRNG',['../md_docs_2model.html#autotoc_md11',1,'']]],
+  ['probability_10',['probability',['../md_docs_2model.html#autotoc_md6',1,'Ignition probability'],['../md_docs_2model.html#autotoc_md8',1,'Single-neighbor probability']]],
+  ['propagation_20model_11',['Simplified propagation model',['../md_docs_2model.html',1,'']]]
 ];

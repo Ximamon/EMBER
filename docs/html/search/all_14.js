@@ -1,16 +1,10 @@
 var searchData=
 [
-  ['parse_5fcli_0',['parse_cli',['../namespaceember.html#a2026626284c7d25df14bb6d4eb99f2bc',1,'ember']]],
-  ['parse_5fexport_5fformat_1',['parse_export_format',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#a4e0c51d0419719e0334d5ff75816fca7',1,'ember::anonymous_namespace{cli.cpp}']]],
-  ['parse_5ffloat_2',['parse_float',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#a8f5cfd23988d695499ebcbd9b9b9aa25',1,'ember::anonymous_namespace{cli.cpp}']]],
-  ['parse_5fignition_3',['parse_ignition',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#ae10fdf53e3a324c46090837a39598c21',1,'ember::anonymous_namespace{cli.cpp}']]],
-  ['parse_5fsize_4',['parse_size',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#afd8bcf4b5c7a9a006cfa4d255f962f10',1,'ember::anonymous_namespace{cli.cpp}']]],
-  ['parse_5fu64_5',['parse_u64',['../namespaceember_1_1anonymous__namespace_02cli_8cpp_03.html#aa40b5da433160af11ed1ac8394dc1e62',1,'ember::anonymous_namespace{cli.cpp}']]],
-  ['pi_6',['pi',['../namespaceember_1_1anonymous__namespace_02simulation_8cpp_03.html#acd0bc4aab6060948a1c21502c459c934',1,'ember::anonymous_namespace{simulation.cpp}']]],
-  ['ppm_7',['Ppm',['../namespaceember.html#a6c81d01a34184af898a01b1ed4b72738a122486fab5ec1c7b75c1ba32ae9eaa24',1,'ember']]],
-  ['preparation_20simulation_20cpp_8',['Step 3: Scenario Preparation (&lt;span class=&quot;tt&quot;&gt;simulation.cpp&lt;/span&gt;)',['../md_docs_2architecture.html#autotoc_md8',1,'']]],
-  ['print_5fhelp_9',['print_help',['../namespaceember.html#ae60684235e0a8911e1dc4cb554c6ede9',1,'ember']]],
-  ['probability_10',['Ignition probability',['../md_docs_2model.html#autotoc_md17',1,'']]],
-  ['project_20structure_11',['2. Project Structure',['../md_docs_2architecture.html#autotoc_md2',1,'']]],
-  ['propagation_20model_12',['Simplified propagation model',['../md_docs_2model.html',1,'']]]
+  ['width_0',['width',['../structember_1_1SimulationConfig.html#ab25399622df25c283c0aa96bc1af354f',1,'ember::SimulationConfig::width'],['../structember_1_1GridView.html#ab38e9f66ef827053dda3ac90459ff860',1,'ember::GridView::width'],['../structember_1_1ConstGridView.html#a8314a2866f746fbc308cd01b22b825b2',1,'ember::ConstGridView::width'],['../classember_1_1GridBuffers.html#af3e88ea6160d05660e2ec6c70fb3f0f9',1,'ember::GridBuffers::width() const noexcept']]],
+  ['width_5f_1',['width_',['../classember_1_1GridBuffers.html#a9137174c568b6c3194c1254c79d4ae2b',1,'ember::GridBuffers']]],
+  ['wildfiresimulation_2',['WildfireSimulation',['../classember_1_1WildfireSimulation.html',1,'ember::WildfireSimulation'],['../classember_1_1WildfireSimulation.html#a509af5fc06293765a73ca4fff62717ea',1,'ember::WildfireSimulation::WildfireSimulation()']]],
+  ['wind_5fdirection_5fdegrees_3',['wind_direction_degrees',['../structember_1_1SimulationConfig.html#afb43a0b7d585c072dfdf5ebd338255ab',1,'ember::SimulationConfig']]],
+  ['wind_5fstrength_4',['wind_strength',['../structember_1_1SimulationConfig.html#a153617b358fb18d178240cd6b83b2978',1,'ember::SimulationConfig']]],
+  ['wind_5fx_5f_5',['wind_x_',['../classember_1_1WildfireSimulation.html#ae4e69b0270e9530f71d4cccd78e46619',1,'ember::WildfireSimulation']]],
+  ['wind_5fy_5f_6',['wind_y_',['../classember_1_1WildfireSimulation.html#a9d9b0ea8f10a793009d12ff522b98aa2',1,'ember::WildfireSimulation']]]
 ];

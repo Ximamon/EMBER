@@ -1,5 +1,7 @@
 var searchData=
 [
-  ['1_20overview_0',['1. Overview',['../md_docs_2architecture.html#autotoc_md1',1,'']]],
-  ['1_3a_20initialization_20and_20cli_20main_20cpp_1',['Step 1: Initialization and CLI (&lt;span class=&quot;tt&quot;&gt;main.cpp&lt;/span&gt;)',['../md_docs_2architecture.html#autotoc_md6',1,'']]]
+  ['and_20cell_20lifecycle_0',['Fuel consumption and cell lifecycle',['../md_docs_2model.html#autotoc_md10',1,'']]],
+  ['and_20stateless_20prng_1',['Synthetic terrain and stateless PRNG',['../md_docs_2model.html#autotoc_md11',1,'']]],
+  ['and_20storage_2',['State and storage',['../md_docs_2model.html#autotoc_md4',1,'']]],
+  ['and_20test_3',['Build and test',['../index.html#autotoc_md14',1,'']]]
 ];

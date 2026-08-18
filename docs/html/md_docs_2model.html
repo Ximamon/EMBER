@@ -120,29 +120,71 @@ document.addEventListener('DOMContentLoaded',() => { initNavTree('md_docs_2model
   <div class="headertitle"><div class="title">Simplified propagation model </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="autotoc_md15"></a></p>
+<div class="textblock"><p><a class="anchor" id="autotoc_md3"></a></p>
 <p>EMBER deliberately uses an educational local model. It is suitable for correctness, reproducibility and performance experiments, but it is not scientifically validated and must not be used for operational decisions.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
 State and storage</h1>
-<p>Each cell is <span class="tt">Unburned</span>, <span class="tt">Burning</span>, <span class="tt">Burned</span> or <span class="tt">NonCombustible</span>. State and fuel use current/next buffers; moisture, vegetation and elevation remain constant. Every step reads only current data and writes every next cell before swapping the buffers.</p>
-<p>The model inspects the eight-cell Moore neighborhood. Out-of-bounds neighbors are ignored. Newly ignited cells cannot influence another cell until the following step.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
+<p>The simulation grid is structured as a 2D rectangular grid of dimensions $\text{width} \times \text{height}$ flattened into contiguous 1D memory buffers using a <b>Structure-of-Arrays (SoA)</b> layout managed by <span class="tt">GridBuffers</span>. Each cell is accessed via its 1D index:</p>
+<p>$$ \text{index} = \text{row} \times \text{width} + \text{column} $$</p>
+<p>Each cell is in one of four states represented by the <span class="tt">CellState</span> enum:</p><ul>
+<li><span class="tt">Unburned</span>: Cell has not ignited and can catch fire.</li>
+<li><span class="tt">Burning</span>: Cell is actively on fire and spreading heat to neighbors.</li>
+<li><span class="tt">Burned</span>: Cell fuel has been completely consumed and cannot ignite again.</li>
+<li><span class="tt">NonCombustible</span>: Cell contains non-combustible material (e.g., river, road) and cannot ignite.</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+Double buffering</h2>
+<p>To prevent data races and order dependencies during cell traversal, dynamic properties (<span class="tt">state</span> and <span class="tt">fuel</span>) maintain two internal vectors (<span class="tt">states_[2]</span> and <span class="tt">fuels_[2]</span>):</p><ul>
+<li><b>Current view (<span class="tt">current_view</span>)</b>: Read-only buffer for step $t$.</li>
+<li><b>Next view (<span class="tt">next_view</span>)</b>: Write-only target buffer for step $t+1$.</li>
+</ul>
+<p>Static terrain properties (<span class="tt">moisture</span>, <span class="tt">vegetation</span>, and <span class="tt">elevation</span>) do not change during simulation and use single contiguous vectors (<span class="tt">moisture_</span>, <span class="tt">vegetation_</span>, <span class="tt">elevation_</span>).</p>
+<p>At the end of each time step, <span class="tt">swap_buffers()</span> alternates the active index (<span class="tt">current_index_ = 1U - current_index_</span>) in $O(1)$ time without copying memory.</p>
+<p>The model inspects the eight-cell Moore neighborhood ($\mathcal{N}_i$). Out-of-bounds neighbors are ignored. Newly ignited cells in step $t$ do not influence neighbor ignition until step $t+1$.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
 Ignition probability</h1>
-<p>For every burning neighbor $j \in \mathcal{N}_i$, an ignition probability contribution $p_{j \to i}$ is computed from the target cell $i$'s fuel ($M_{\text{fuel}}$), moisture ($M_{\text{moisture}}$), and vegetation ($M_{\text{veg}}$); wind alignment; elevation difference; and neighbor distance:</p>
-<p>$$ f_{\text{moisture}} = 1 - 0.8 \cdot \text{clamp}(M_{\text{moisture}}, 0, 1) $$</p>
-<p>$$ f_{\text{wind}} = \text{clamp}\left(1 + U_{\text{wind}} \cdot \mathbf{a}, \, 0.25, \, 2.0\right) $$</p>
-<p>$$ S = \text{clamp}\left(\frac{E_i - E_j}{S_{\text{scale}}}, \, -1.0, \, 1.0\right) $$</p>
-<p>$$ f_{\text{slope}} = \text{clamp}\left(1 + 0.5 \cdot S, \, 0.5, \, 1.5\right) $$</p>
-<p>$$ f_{\text{distance}} = \begin{cases} 1.0 &amp; \text{for cardinal neighbors } (\Delta x \cdot \Delta y = 0) \ \frac{1}{\sqrt{2}} \approx 0.7071 &amp; \text{for diagonal neighbors } (\Delta x \cdot \Delta y \neq 0) \end{cases} $$</p>
-<p>The single-neighbor ignition probability $p_{j \to i}$ is given by:</p>
-<p>$$ p_{j \to i} = \text{clamp}\Big(P_{\text{base}} \cdot M_{\text{fuel}} \cdot M_{\text{veg}} \cdot f_{\text{moisture}} \cdot f_{\text{wind}} \cdot f_{\text{slope}} \cdot f_{\text{distance}}, \, 0, \, 1\Big) $$</p>
-<p>Where the wind alignment $\mathbf{a} = \hat{\mathbf{d}} \cdot \hat{\mathbf{w}}$ is the dot product between the propagation direction unit vector $\hat{\mathbf{d}}$ (from burning neighbor $j$ to target $i$) and the global wind vector $\hat{\mathbf{w}} = (\cos \theta, \sin \theta)$.</p>
-<p>Contributions from all burning neighbors $j \in \mathcal{N}_{\text{burning}}$ are combined as independent events:</p>
+<p>For every burning neighbor $j \in \mathcal{N}_i$, an ignition probability contribution $p_{j \to i}$ is computed from target cell $i$'s fuel ($M_{\text{fuel}}$), moisture ($M_{\text{moisture}}$), and vegetation ($M_{\text{veg}}$); wind alignment; elevation difference; and neighbor distance.</p>
+<blockquote class="doxtable">
+<p><b>Note on the <span class="tt">clamp</span> function</b>: Throughout the equations, $\text{clamp}(v, a, b)$ (implemented via <span class="tt">std::clamp</span> / <span class="tt">clamp01</span>) restricts a scalar value $v$ to the closed interval $[a, b]$: $$ \text{clamp}(v, a, b) = \max\left(a, \min(v, b)\right) = \begin{cases} a &amp; \text{if } v &lt; a \ v &amp; \text{if } a \le v \le b \ b &amp; \text{if } v &gt; b \end{cases} $$ When no upper bound is specified (e.g., $\text{clamp}(v)$ or <span class="tt">clamp01</span>), the default interval is $[0, 1]$. This prevents numerical overflow and bounds modifiers within valid physical limits. </p>
+</blockquote>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+Environmental factors</h2>
+<ol type="1">
+<li><b>Moisture modifier</b>: $$ f_{\text{moisture}} = 1 - 0.8 \cdot \text{clamp}(M_{\text{moisture}}, 0, 1) $$</li>
+<li><b>Wind alignment modifier</b>: $$ f_{\text{wind}} = \text{clamp}\left(1 + U_{\text{wind}} \cdot \mathbf{a}, \, 0.25, \, 2.0\right) $$ where $\mathbf{a} = \hat{\mathbf{d}} \cdot \hat{\mathbf{w}}$ is the dot product between the propagation direction unit vector $\hat{\mathbf{d}}$ (from burning neighbor $j$ to target $i$) and the global wind vector $\hat{\mathbf{w}} = (\cos \theta, \sin \theta)$. In grid space where row index grows downwards, the direction vector is $\hat{\mathbf{d}} = ( \Delta x \cdot f_{\text{distance}}, \, -\Delta y \cdot f_{\text{distance}} )$ to align $90^\circ$ with North (upwards).</li>
+<li><b>Slope modifier</b>: $$ S = \text{clamp}\left(\frac{E_i - E_j}{S_{\text{scale}}}, \, -1.0, \, 1.0\right) $$ $$ f_{\text{slope}} = \text{clamp}\left(1 + 0.5 \cdot S, \, 0.5, \, 1.5\right) $$ Fire spreads faster uphill ($E_i &gt; E_j$) and slower downhill ($E_i &lt; E_j$).</li>
+<li><b>Distance factor</b>: $$ f_{\text{distance}} = \begin{cases} 1.0 &amp; \text{for cardinal neighbors } (\Delta x \cdot \Delta y = 0) \ \frac{1}{\sqrt{2}} \approx 0.70710678 &amp; \text{for diagonal neighbors } (\Delta x \cdot \Delta y \neq 0) \end{cases} $$</li>
+</ol>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+Single-neighbor probability</h2>
+<p>The probability of target cell $i$ igniting due to burning neighbor $j$ is:</p>
+<p>$$ p_{j \to i} = \text{clamp}\Big(P_{\text{base}} \cdot \text{clamp}(M_{\text{fuel}}, 0, 1) \cdot M_{\text{veg}} \cdot f_{\text{moisture}} \cdot f_{\text{wind}} \cdot f_{\text{slope}} \cdot f_{\text{distance}}, \, 0, \, 1\Big) $$</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
+Multi-neighbor independent combination</h2>
+<p>Contributions from all burning neighbors $j \in \mathcal{N}_{\text{burning}}$ are combined assuming independent ignition events:</p>
 <p>$$ P_{\text{total}}(i) = 1 - \prod_{j \in \mathcal{N}_{\text{burning}}} \left(1 - p_{j \to i}\right) $$</p>
-<p>One stateless random draw $U \sim \text{Uniform}(0, 1)$ keyed by <span class="tt">(scenario_seed, step_index, cell_index)</span> decides ignition ($U &lt; P_{\text{total}}(i)$). A burning cell loses $R_{\text{burn}}$ fuel per step and becomes <span class="tt">Burned</span> when fuel reaches $0$. A newly burning cell starts consuming fuel on its next step.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
-Synthetic terrain</h1>
-<p>Fuel, moisture, vegetation, elevation and non-combustibility use independent hash tags. A scenario seed is derived from the global seed and scenario identifier. This avoids mutable RNG state and makes later parallel traversal deterministic.</p>
+<p>A target cell ignites if a stateless random draw $U \sim \text{Uniform}(0, 1)$ satisfies $U &lt; P_{\text{total}}(i)$.</p>
+<p>The random value $U$ is derived deterministically for cell $i$ at step $t$ using the C++ function:</p>
+<div class="fragment"><div class="line"><span class="keyword">const</span> <span class="keywordtype">double</span> U = uniform01(keyed_hash(</div>
+<div class="line">    scenario_seed, random_tag::spread, step_index, cell_index));</div>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+Fuel consumption and cell lifecycle</h1>
+<ul>
+<li><b>Burning cells</b>: Lose fuel at rate $R_{\text{burn}}$ per step: $$ M_{\text{fuel}}(t+1) = \max\left(0, \, M_{\text{fuel}}(t) - R_{\text{burn}}\right) $$ When fuel reaches $0$, the cell transitions to <span class="tt">Burned</span>.</li>
+<li><b>Newly ignited cells</b>: Transition to <span class="tt">Burning</span> in <span class="tt">next_view</span> during step $t$ without consuming fuel until step $t+1$.</li>
+<li><b>Initial ignition points</b>: Configured via <span class="tt">--ignition X,Y</span> or defaulted to the center cell $(\lfloor \text{width}/2 \rfloor, \lfloor \text{height}/2 \rfloor)$. Ignition cells have their fuel initialized to $\max(M_{\text{fuel}}, R_{\text{burn}})$ in both buffers to guarantee they burn for at least one step.</li>
+</ul>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+Synthetic terrain and stateless PRNG</h1>
+<p>All initial cell parameters are procedurally generated using stateless 64-bit hashing (<span class="tt">keyed_hash</span>) with dedicated 64-bit tags:</p><ul>
+<li><span class="tt">random_tag::fuel</span> (<span class="tt">0x4655454c</span>)</li>
+<li><span class="tt">random_tag::moisture</span> (<span class="tt">0x4d4f4953</span>)</li>
+<li><span class="tt">random_tag::vegetation</span> (<span class="tt">0x56454745</span>)</li>
+<li><span class="tt">random_tag::elevation</span> (<span class="tt">0x454c4556</span>)</li>
+<li><span class="tt">random_tag::non_combustible</span> (<span class="tt">0x4e4f4e43</span>)</li>
+<li><span class="tt">random_tag::spread</span> (<span class="tt">0x53505244</span>)</li>
+</ul>
+<p>The scenario seed is derived deterministically from global seed and scenario ID (<span class="tt">scenario_seed = hash_combine(global_seed, scenario_id)</span>). This eliminates mutable PRNG state and ensures bitwise reproducibility across thread or cell traversal variations.</p>
 <p>Default terrain samples are independent per cell. Spatially correlated terrain, real fuel classes, dynamic weather, physical spread rates and validated slope functions are intentionally outside the MVP. Those features can replace terrain initialization and the per-neighbor probability calculation without changing the runner or buffer protocol. </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->

@@ -1,8 +1,25 @@
 var searchData=
 [
-  ['final_20summary_0',['Step 6: Final Summary',['../md_docs_2architecture.html#autotoc_md11',1,'']]],
-  ['finalize_5fbatch_5fstatistics_1',['finalize_batch_statistics',['../namespaceember.html#ae0567e01858a54aa571a4bc0400071e4',1,'ember']]],
-  ['flow_20life_20of_20a_20run_2',['3. Execution Flow (Life of a Run)',['../md_docs_2architecture.html#autotoc_md5',1,'']]],
-  ['fuel_3',['fuel',['../structember_1_1GridView.html#a91a59a1899cb0aa2b836e316b9396b68',1,'ember::GridView::fuel'],['../structember_1_1ConstGridView.html#ad4e8bcd18e141cca7c27a3fc1dc90621',1,'ember::ConstGridView::fuel'],['../namespaceember_1_1random__tag.html#a71b6b96327d68ed88234c6f31ae24bb6',1,'ember::random_tag::fuel']]],
-  ['fuels_5f_4',['fuels_',['../classember_1_1GridBuffers.html#a550cc722548ba129bf85d311f0b939db',1,'ember::GridBuffers']]]
+  ['main_0',['main',['../main_8cpp.html#ac0f2228420376f4db7e1274f2b41667c',1,'main.cpp']]],
+  ['main_2ecpp_1',['main.cpp',['../main_8cpp.html',1,'']]],
+  ['max_5felevation_2',['max_elevation',['../structember_1_1SimulationConfig.html#af5d4a43daa75e452665f49d22dc97366',1,'ember::SimulationConfig']]],
+  ['max_5ffuel_3',['max_fuel',['../structember_1_1SimulationConfig.html#ac28936830a3e1fc6e27ac5e29785abbf',1,'ember::SimulationConfig']]],
+  ['max_5fmoisture_4',['max_moisture',['../structember_1_1SimulationConfig.html#af1c251b8703cb21f65a6b44b8e94f3f5',1,'ember::SimulationConfig']]],
+  ['max_5fsteps_5',['max_steps',['../structember_1_1SimulationConfig.html#a07dde1e5bcfb58888b47e18f5211d720',1,'ember::SimulationConfig']]],
+  ['max_5fsteps_5fscenarios_6',['max_steps_scenarios',['../structember_1_1BatchStatistics.html#ad40af1157fa7ab7c5b40260b2bf1954b',1,'ember::BatchStatistics']]],
+  ['max_5fvegetation_7',['max_vegetation',['../structember_1_1SimulationConfig.html#a896f9a613959e7620c79f54984fa9914',1,'ember::SimulationConfig']]],
+  ['maxsteps_8',['MaxSteps',['../namespaceember.html#a5b22839b0a30e4a5151c5a65c742ab55ab87b343c15895da87cc8ff34fbe4c63f',1,'ember']]],
+  ['mean_5fburned_5fpercent_9',['mean_burned_percent',['../structember_1_1BatchStatistics.html#a39fd9fd4a5d67471b4828e55698f047e',1,'ember::BatchStatistics']]],
+  ['mean_5fscenario_5fseconds_10',['mean_scenario_seconds',['../structember_1_1BatchStatistics.html#a901595f7f2d7db8107f563e47ede83d0',1,'ember::BatchStatistics']]],
+  ['metrics_11',['Metrics',['../index.html#autotoc_md16',1,'']]],
+  ['min_5felevation_12',['min_elevation',['../structember_1_1SimulationConfig.html#add8ca998e9cfcf633df5fed422b6ae0c',1,'ember::SimulationConfig']]],
+  ['min_5ffuel_13',['min_fuel',['../structember_1_1SimulationConfig.html#a906cbc6a984a13ff3eb9e78ca2fd7434',1,'ember::SimulationConfig']]],
+  ['min_5fmoisture_14',['min_moisture',['../structember_1_1SimulationConfig.html#a895df58b9f7775977ba376a12a54e08e',1,'ember::SimulationConfig']]],
+  ['min_5fvegetation_15',['min_vegetation',['../structember_1_1SimulationConfig.html#af73aa0ecbbe681486e68a6acc57bca81',1,'ember::SimulationConfig']]],
+  ['mix64_16',['mix64',['../namespaceember.html#a040bbddf9be6639bb5db89413851ee6f',1,'ember']]],
+  ['model_17',['Simplified propagation model',['../md_docs_2model.html',1,'']]],
+  ['model_2emd_18',['model.md',['../model_8md.html',1,'']]],
+  ['moisture_19',['moisture',['../structember_1_1GridView.html#aebd1ac33f340a12ebd37a70600f97fb7',1,'ember::GridView::moisture'],['../structember_1_1ConstGridView.html#ae1cb487ab927b4a5fd1371eb4d34c455',1,'ember::ConstGridView::moisture'],['../namespaceember_1_1random__tag.html#af0cdc50c0cde18c5610bb0b23add9d1a',1,'ember::random_tag::moisture']]],
+  ['moisture_5f_20',['moisture_',['../classember_1_1GridBuffers.html#a1d9a715782964700fbe1201780624f13',1,'ember::GridBuffers']]],
+  ['multi_20neighbor_20independent_20combination_21',['Multi-neighbor independent combination',['../md_docs_2model.html#autotoc_md9',1,'']]]
 ];

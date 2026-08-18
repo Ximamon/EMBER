@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['final_20summary_0',['Step 6: Final Summary',['../md_docs_2architecture.html#autotoc_md11',1,'']]],
-  ['flow_20life_20of_20a_20run_1',['3. Execution Flow (Life of a Run)',['../md_docs_2architecture.html#autotoc_md5',1,'']]]
+  ['prng_0',['Synthetic terrain and stateless PRNG',['../md_docs_2model.html#autotoc_md11',1,'']]],
+  ['probability_1',['probability',['../md_docs_2model.html#autotoc_md6',1,'Ignition probability'],['../md_docs_2model.html#autotoc_md8',1,'Single-neighbor probability']]],
+  ['propagation_20model_2',['Simplified propagation model',['../md_docs_2model.html',1,'']]]
 ];

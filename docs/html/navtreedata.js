@@ -25,35 +25,28 @@
 var NAVTREE =
 [
   [ "EMBER", "index.html", [
-    [ "Requirements", "index.html#autotoc_md20", null ],
-    [ "Build and test", "index.html#autotoc_md21", null ],
-    [ "Run", "index.html#autotoc_md22", null ],
-    [ "Metrics", "index.html#autotoc_md23", null ],
-    [ "Benchmarking", "index.html#autotoc_md24", null ],
-    [ "Documentation", "index.html#autotoc_md25", null ],
-    [ "License", "index.html#autotoc_md26", null ],
-    [ "EMBER Architecture Guide", "md_docs_2architecture.html", [
-      [ "1. Overview", "md_docs_2architecture.html#autotoc_md1", null ],
-      [ "2. Project Structure", "md_docs_2architecture.html#autotoc_md2", [
-        [ "Core Components", "md_docs_2architecture.html#autotoc_md3", null ]
-      ] ],
-      [ "3. Execution Flow (Life of a Run)", "md_docs_2architecture.html#autotoc_md5", [
-        [ "Step 1: Initialization and CLI (<span class=\"tt\">main.cpp</span>)", "md_docs_2architecture.html#autotoc_md6", null ],
-        [ "Step 2: Batch Bootstrapping (<span class=\"tt\">runner.cpp</span>)", "md_docs_2architecture.html#autotoc_md7", null ],
-        [ "Step 3: Scenario Preparation (<span class=\"tt\">simulation.cpp</span>)", "md_docs_2architecture.html#autotoc_md8", null ],
-        [ "Step 4: The Simulation Loop (The Engine)", "md_docs_2architecture.html#autotoc_md9", null ],
-        [ "Step 5: Termination and Export", "md_docs_2architecture.html#autotoc_md10", null ],
-        [ "Step 6: Final Summary", "md_docs_2architecture.html#autotoc_md11", null ]
-      ] ]
-    ] ],
+    [ "Requirements", "index.html#autotoc_md13", null ],
+    [ "Build and test", "index.html#autotoc_md14", null ],
+    [ "Run", "index.html#autotoc_md15", null ],
+    [ "Metrics", "index.html#autotoc_md16", null ],
+    [ "Benchmarking", "index.html#autotoc_md17", null ],
+    [ "Documentation", "index.html#autotoc_md18", null ],
+    [ "License", "index.html#autotoc_md19", null ],
     [ "CUDA readiness", "md_docs_2cuda-readiness.html", [
-      [ "Candidate kernels", "md_docs_2cuda-readiness.html#autotoc_md13", null ],
-      [ "Expected issues", "md_docs_2cuda-readiness.html#autotoc_md14", null ]
+      [ "Candidate kernels", "md_docs_2cuda-readiness.html#autotoc_md1", null ],
+      [ "Expected issues", "md_docs_2cuda-readiness.html#autotoc_md2", null ]
     ] ],
     [ "Simplified propagation model", "md_docs_2model.html", [
-      [ "State and storage", "md_docs_2model.html#autotoc_md16", null ],
-      [ "Ignition probability", "md_docs_2model.html#autotoc_md17", null ],
-      [ "Synthetic terrain", "md_docs_2model.html#autotoc_md18", null ]
+      [ "State and storage", "md_docs_2model.html#autotoc_md4", [
+        [ "Double buffering", "md_docs_2model.html#autotoc_md5", null ]
+      ] ],
+      [ "Ignition probability", "md_docs_2model.html#autotoc_md6", [
+        [ "Environmental factors", "md_docs_2model.html#autotoc_md7", null ],
+        [ "Single-neighbor probability", "md_docs_2model.html#autotoc_md8", null ],
+        [ "Multi-neighbor independent combination", "md_docs_2model.html#autotoc_md9", null ]
+      ] ],
+      [ "Fuel consumption and cell lifecycle", "md_docs_2model.html#autotoc_md10", null ],
+      [ "Synthetic terrain and stateless PRNG", "md_docs_2model.html#autotoc_md11", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
@@ -86,7 +79,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"structember_1_1GridView.html#a930c7b172e8d875a101f2344b592cb0d"
+"structember_1_1GridView.html#ae13055b9cf325d1e284eaa766c33db59"
 ];
 
 const SYNCONMSG = 'click to disable panel synchronization';

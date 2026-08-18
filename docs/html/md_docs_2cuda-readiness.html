@@ -120,9 +120,9 @@ document.addEventListener('DOMContentLoaded',() => { initNavTree('md_docs_2cuda-
   <div class="headertitle"><div class="title">CUDA readiness </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="autotoc_md12"></a></p>
+<div class="textblock"><p><a class="anchor" id="autotoc_md0"></a></p>
 <p>The CPU baseline separates contiguous data ownership (<span class="tt">GridBuffers</span>) from trivially copyable pointer views (<span class="tt">GridView</span> and <span class="tt">ConstGridView</span>). A future CUDA backend can preserve the public configuration and statistics while replacing initialization and update loops.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md1"></a>
 Candidate kernels</h1>
 <ol type="1">
 <li>Terrain initialization: one thread per cell, using the existing integer hash.</li>
@@ -131,7 +131,7 @@ Candidate kernels</h1>
 <li>Scenario batching: map scenarios to an additional grid dimension when device memory permits.</li>
 </ol>
 <p>State, both fuel/state buffers and static terrain arrays should remain resident on the device across steps. Swapping current and next pointers avoids full-grid copies. Only counters and final requested grids need host transfers.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md2"></a>
 Expected issues</h1>
 <ul>
 <li>Boundary and state branches may cause warp divergence.</li>
