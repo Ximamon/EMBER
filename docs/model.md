@@ -32,12 +32,15 @@ The model inspects the eight-cell Moore neighborhood ($\mathcal{N}_i$). Out-of-b
 
 For every burning neighbor $j \in \mathcal{N}_i$, an ignition probability contribution $p_{j \to i}$ is computed from target cell $i$'s fuel ($M_{\text{fuel}}$), moisture ($M_{\text{moisture}}$), and vegetation ($M_{\text{veg}}$); wind alignment; elevation difference; and neighbor distance.
 
-> **Note on the `clamp` function**:
-> Throughout the equations, $\text{clamp}(v, a, b)$ (implemented via `std::clamp` / `clamp01`) restricts a scalar value $v$ to the closed interval $[a, b]$:
-> $$
-> \text{clamp}(v, a, b) = \max\left(a, \min(v, b)\right) = \begin{cases} a & \text{if } v < a \\ v & \text{if } a \le v \le b \\ b & \text{if } v > b \end{cases}
-> $$
-> When no upper bound is specified (e.g., $\text{clamp}(v)$ or `clamp01`), the default interval is $[0, 1]$. This prevents numerical overflow and bounds modifiers within valid physical limits.
+### The `clamp` function
+
+Throughout the model equations, $\text{clamp}(v, a, b)$ (implemented via `std::clamp` / `clamp01`) restricts a scalar value $v$ to the closed interval $[a, b]$:
+
+$$
+\text{clamp}(v, a, b) = \max\left(a, \min(v, b)\right) = \begin{cases} a & \text{if } v < a \\\\ v & \text{if } a \le v \le b \\\\ b & \text{if } v > b \end{cases}
+$$
+
+When no upper bound is specified (e.g., $\text{clamp}(v)$ or `clamp01`), the default interval is $[0, 1]$. This prevents numerical overflow and bounds modifiers within valid physical limits.
 
 ### Environmental factors
 

@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['neighbor_20independent_20combination_0',['Multi-neighbor independent combination',['../md_docs_2model.html#autotoc_md9',1,'']]],
-  ['neighbor_20probability_1',['Single-neighbor probability',['../md_docs_2model.html#autotoc_md8',1,'']]],
+  ['neighbor_20independent_20combination_0',['Multi-neighbor independent combination',['../md_docs_2model.html#autotoc_md10',1,'']]],
+  ['neighbor_20probability_1',['Single-neighbor probability',['../md_docs_2model.html#autotoc_md9',1,'']]],
   ['neighbor_5fignition_5fprobability_2',['neighbor_ignition_probability',['../classember_1_1WildfireSimulation.html#a44ea54b1a03138ca162fe9219d68992e',1,'ember::WildfireSimulation']]],
   ['neighbor_5fprobability_3',['neighbor_probability',['../classember_1_1WildfireSimulation.html#a4b975a7d991611e3b1404fa0c7b7b6db',1,'ember::WildfireSimulation']]],
   ['next_5fview_4',['next_view',['../classember_1_1GridBuffers.html#a76b28f5178f9eb88b127e29d7f1cbd3c',1,'ember::GridBuffers']]],

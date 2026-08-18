@@ -17,6 +17,20 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
+<script type="text/javascript">
+window.MathJax = {
+  options: {
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  }
+};
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']]
+  }
+};
+</script>
+<script type="text/javascript" id="MathJax-script" async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 const theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default';
@@ -144,10 +158,12 @@ Double buffering</h2>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
 Ignition probability</h1>
 <p>For every burning neighbor $j \in \mathcal{N}_i$, an ignition probability contribution $p_{j \to i}$ is computed from target cell $i$'s fuel ($M_{\text{fuel}}$), moisture ($M_{\text{moisture}}$), and vegetation ($M_{\text{veg}}$); wind alignment; elevation difference; and neighbor distance.</p>
-<blockquote class="doxtable">
-<p><b>Note on the <span class="tt">clamp</span> function</b>: Throughout the equations, $\text{clamp}(v, a, b)$ (implemented via <span class="tt">std::clamp</span> / <span class="tt">clamp01</span>) restricts a scalar value $v$ to the closed interval $[a, b]$: $$ \text{clamp}(v, a, b) = \max\left(a, \min(v, b)\right) = \begin{cases} a &amp; \text{if } v &lt; a \ v &amp; \text{if } a \le v \le b \ b &amp; \text{if } v &gt; b \end{cases} $$ When no upper bound is specified (e.g., $\text{clamp}(v)$ or <span class="tt">clamp01</span>), the default interval is $[0, 1]$. This prevents numerical overflow and bounds modifiers within valid physical limits. </p>
-</blockquote>
 <h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+The <span class="tt">clamp</span> function</h2>
+<p>Throughout the model equations, $\text{clamp}(v, a, b)$ (implemented via <span class="tt">std::clamp</span> / <span class="tt">clamp01</span>) restricts a scalar value $v$ to the closed interval $[a, b]$:</p>
+<p>$$ \text{clamp}(v, a, b) = \max\left(a, \min(v, b)\right) = \begin{cases} a &amp; \text{if } v &lt; a \\ v &amp; \text{if } a \le v \le b \\ b &amp; \text{if } v &gt; b \end{cases} $$</p>
+<p>When no upper bound is specified (e.g., $\text{clamp}(v)$ or <span class="tt">clamp01</span>), the default interval is $[0, 1]$. This prevents numerical overflow and bounds modifiers within valid physical limits.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
 Environmental factors</h2>
 <ol type="1">
 <li><b>Moisture modifier</b>: $$ f_{\text{moisture}} = 1 - 0.8 \cdot \text{clamp}(M_{\text{moisture}}, 0, 1) $$</li>
@@ -155,11 +171,11 @@ Environmental factors</h2>
 <li><b>Slope modifier</b>: $$ S = \text{clamp}\left(\frac{E_i - E_j}{S_{\text{scale}}}, \, -1.0, \, 1.0\right) $$ $$ f_{\text{slope}} = \text{clamp}\left(1 + 0.5 \cdot S, \, 0.5, \, 1.5\right) $$ Fire spreads faster uphill ($E_i &gt; E_j$) and slower downhill ($E_i &lt; E_j$).</li>
 <li><b>Distance factor</b>: $$ f_{\text{distance}} = \begin{cases} 1.0 &amp; \text{for cardinal neighbors } (\Delta x \cdot \Delta y = 0) \ \frac{1}{\sqrt{2}} \approx 0.70710678 &amp; \text{for diagonal neighbors } (\Delta x \cdot \Delta y \neq 0) \end{cases} $$</li>
 </ol>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
 Single-neighbor probability</h2>
 <p>The probability of target cell $i$ igniting due to burning neighbor $j$ is:</p>
 <p>$$ p_{j \to i} = \text{clamp}\Big(P_{\text{base}} \cdot \text{clamp}(M_{\text{fuel}}, 0, 1) \cdot M_{\text{veg}} \cdot f_{\text{moisture}} \cdot f_{\text{wind}} \cdot f_{\text{slope}} \cdot f_{\text{distance}}, \, 0, \, 1\Big) $$</p>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
 Multi-neighbor independent combination</h2>
 <p>Contributions from all burning neighbors $j \in \mathcal{N}_{\text{burning}}$ are combined assuming independent ignition events:</p>
 <p>$$ P_{\text{total}}(i) = 1 - \prod_{j \in \mathcal{N}_{\text{burning}}} \left(1 - p_{j \to i}\right) $$</p>
@@ -167,14 +183,14 @@ Multi-neighbor independent combination</h2>
 <p>The random value $U$ is derived deterministically for cell $i$ at step $t$ using the C++ function:</p>
 <div class="fragment"><div class="line"><span class="keyword">const</span> <span class="keywordtype">double</span> U = uniform01(keyed_hash(</div>
 <div class="line">    scenario_seed, random_tag::spread, step_index, cell_index));</div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
 Fuel consumption and cell lifecycle</h1>
 <ul>
 <li><b>Burning cells</b>: Lose fuel at rate $R_{\text{burn}}$ per step: $$ M_{\text{fuel}}(t+1) = \max\left(0, \, M_{\text{fuel}}(t) - R_{\text{burn}}\right) $$ When fuel reaches $0$, the cell transitions to <span class="tt">Burned</span>.</li>
 <li><b>Newly ignited cells</b>: Transition to <span class="tt">Burning</span> in <span class="tt">next_view</span> during step $t$ without consuming fuel until step $t+1$.</li>
 <li><b>Initial ignition points</b>: Configured via <span class="tt">--ignition X,Y</span> or defaulted to the center cell $(\lfloor \text{width}/2 \rfloor, \lfloor \text{height}/2 \rfloor)$. Ignition cells have their fuel initialized to $\max(M_{\text{fuel}}, R_{\text{burn}})$ in both buffers to guarantee they burn for at least one step.</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
 Synthetic terrain and stateless PRNG</h1>
 <p>All initial cell parameters are procedurally generated using stateless 64-bit hashing (<span class="tt">keyed_hash</span>) with dedicated 64-bit tags:</p><ul>
 <li><span class="tt">random_tag::fuel</span> (<span class="tt">0x4655454c</span>)</li>

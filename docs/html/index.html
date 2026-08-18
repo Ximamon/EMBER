@@ -17,6 +17,20 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
+<script type="text/javascript">
+window.MathJax = {
+  options: {
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  }
+};
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']]
+  }
+};
+</script>
+<script type="text/javascript" id="MathJax-script" async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 const theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default';
@@ -123,7 +137,7 @@ document.addEventListener('DOMContentLoaded',() => { initNavTree('index.html',''
 <div class="textblock"><p><a class="anchor" id="md_README"></a></p>
 <p>EMBER is a small, deterministic CPU baseline for experimenting with stochastic wildfire propagation and future CPU/GPU optimization. It is an educational simulator, not an operational fire prediction system.</p>
 <p>The model uses a rectangular Structure-of-Arrays grid, Moore neighborhoods, double buffering and stateless random values derived from <span class="tt">(seed, scenario, step, cell)</span>. A run is reproducible for the same configuration and build environment, independent of scenario batching or cell traversal order.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
 Requirements</h1>
 <ul>
 <li>CMake 3.20 or newer.</li>
@@ -131,7 +145,7 @@ Requirements</h1>
 <li>Python 3 only if using the optional benchmark automation script.</li>
 </ul>
 <p>No third-party C++ libraries or package manager are required.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
 Build and test</h1>
 <div class="fragment"><div class="line">cmake -S . -B build -DCMAKE_BUILD_TYPE=Release</div>
 <div class="line">cmake --build build --config Release</div>
@@ -141,7 +155,7 @@ Build and test</h1>
 <div class="fragment"><div class="line">cmake -S . -B build-sanitize -DEMBER_ENABLE_SANITIZERS=ON -DCMAKE_BUILD_TYPE=Debug</div>
 <div class="line">cmake --build build-sanitize</div>
 <div class="line">ctest --test-dir build-sanitize --output-on-failure</div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
 Run</h1>
 <div class="fragment"><div class="line">./build/ember \</div>
 <div class="line">  --width 512 \</div>
@@ -155,18 +169,18 @@ Run</h1>
 <div class="line">  --output results/</div>
 </div><!-- fragment --><p>Use <span class="tt">./build/ember --help</span> for every option. <span class="tt">--ignition X,Y</span> may be repeated; without it, the center cell is ignited. <span class="tt">--output</span> writes per-scenario and batch metrics to <span class="tt">summary.csv</span>. Add <span class="tt">--export csv</span>, <span class="tt">--export ppm</span> or <span class="tt">--export both</span> to write final grids.</p>
 <p>Wind direction is where the wind blows toward: 0 degrees is east and 90 degrees is north. Coordinates use <span class="tt">(x,y)</span> with <span class="tt">(0,0)</span> in the upper-left grid cell.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
 Metrics</h1>
 <p>Initialization and simulation are timed separately with <span class="tt">std::chrono::steady_clock</span>. Export and CLI work are excluded. One cell update means one cell visited during one executed time step:</p>
 <div class="fragment"><div class="line">cell_updates = width * height * sum(executed_steps_per_scenario)</div>
 <div class="line">throughput = cell_updates / simulation_seconds</div>
 </div><!-- fragment --><p>Early extinction therefore performs fewer updates than the configured maximum. Burned area counts final <span class="tt">Burning</span> and <span class="tt">Burned</span> cells and divides by the entire rectangular surface.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
 Benchmarking</h1>
 <p>After a Release build:</p>
 <div class="fragment"><div class="line">python scripts/run_benchmarks.py --executable ./build/ember --output benchmarks/benchmark_results.csv</div>
 </div><!-- fragment --><p>The script performs one warm-up and five measured repetitions for each defined workload. It never enables grid export. See benchmarks/README.md for the matrix and reporting rules.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md19"></a>
 Documentation</h1>
 <ul>
 <li><a class="el" href="md_docs_2model.html" title="Simplified propagation model">Simplified propagation model</a></li>
@@ -175,7 +189,7 @@ Documentation</h1>
 <p>To generate and view the HTML API documentation locally using Doxygen:</p>
 <div class="fragment"><div class="line">doxygen Doxyfile</div>
 <div class="line">open docs/html/index.html</div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md19"></a>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md20"></a>
 License</h1>
 <p>EMBER is released under the [MIT License](LICENSE). </p>
 </div></div><!-- PageDoc -->

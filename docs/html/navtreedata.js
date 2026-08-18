@@ -25,13 +25,13 @@
 var NAVTREE =
 [
   [ "EMBER", "index.html", [
-    [ "Requirements", "index.html#autotoc_md13", null ],
-    [ "Build and test", "index.html#autotoc_md14", null ],
-    [ "Run", "index.html#autotoc_md15", null ],
-    [ "Metrics", "index.html#autotoc_md16", null ],
-    [ "Benchmarking", "index.html#autotoc_md17", null ],
-    [ "Documentation", "index.html#autotoc_md18", null ],
-    [ "License", "index.html#autotoc_md19", null ],
+    [ "Requirements", "index.html#autotoc_md14", null ],
+    [ "Build and test", "index.html#autotoc_md15", null ],
+    [ "Run", "index.html#autotoc_md16", null ],
+    [ "Metrics", "index.html#autotoc_md17", null ],
+    [ "Benchmarking", "index.html#autotoc_md18", null ],
+    [ "Documentation", "index.html#autotoc_md19", null ],
+    [ "License", "index.html#autotoc_md20", null ],
     [ "CUDA readiness", "md_docs_2cuda-readiness.html", [
       [ "Candidate kernels", "md_docs_2cuda-readiness.html#autotoc_md1", null ],
       [ "Expected issues", "md_docs_2cuda-readiness.html#autotoc_md2", null ]
@@ -41,12 +41,13 @@ var NAVTREE =
         [ "Double buffering", "md_docs_2model.html#autotoc_md5", null ]
       ] ],
       [ "Ignition probability", "md_docs_2model.html#autotoc_md6", [
-        [ "Environmental factors", "md_docs_2model.html#autotoc_md7", null ],
-        [ "Single-neighbor probability", "md_docs_2model.html#autotoc_md8", null ],
-        [ "Multi-neighbor independent combination", "md_docs_2model.html#autotoc_md9", null ]
+        [ "The <span class=\"tt\">clamp</span> function", "md_docs_2model.html#autotoc_md7", null ],
+        [ "Environmental factors", "md_docs_2model.html#autotoc_md8", null ],
+        [ "Single-neighbor probability", "md_docs_2model.html#autotoc_md9", null ],
+        [ "Multi-neighbor independent combination", "md_docs_2model.html#autotoc_md10", null ]
       ] ],
-      [ "Fuel consumption and cell lifecycle", "md_docs_2model.html#autotoc_md10", null ],
-      [ "Synthetic terrain and stateless PRNG", "md_docs_2model.html#autotoc_md11", null ]
+      [ "Fuel consumption and cell lifecycle", "md_docs_2model.html#autotoc_md11", null ],
+      [ "Synthetic terrain and stateless PRNG", "md_docs_2model.html#autotoc_md12", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
@@ -79,7 +80,7 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"structember_1_1GridView.html#ae13055b9cf325d1e284eaa766c33db59"
+"structember_1_1GridView.html#ab38e9f66ef827053dda3ac90459ff860"
 ];
 
 const SYNCONMSG = 'click to disable panel synchronization';
