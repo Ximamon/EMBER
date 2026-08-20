@@ -7,3 +7,5 @@ __pycache__/
 *.ppm
 .idea
 .vscode
+*.err
+*.out
