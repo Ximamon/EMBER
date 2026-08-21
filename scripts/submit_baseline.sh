@@ -4,19 +4,27 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=00:05:00
+#SBATCH --time=00:45:00
 #SBATCH --output=baseline_%j.out
 #SBATCH --error=baseline_%j.err
+#SBATCH --chdir=/home/sb1user/EMBER
+
+# Entrar explícitamente a la raíz del proyecto
+cd /home/sb1user/EMBER
 
 echo "=================================================="
-echo " SANTABARBARA1 - MEDIDA BASELINE SECUENCIAL"
+echo "SANTABARBARA1 - MEDIDA BASELINE SECUENCIAL"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Nodo de ejecución: $(hostname)"
+echo "Directorio de trabajo: $(pwd)"
 echo "Fecha: $(date)"
 echo "=================================================="
 
-# Ejecutar simulación estándar de prueba (Malla 1024x1024, 1 escenario, 500 pasos)
-./build/ember --width 1024 --height 1024 --steps 500 --scenarios 1 --output baseline_summary.csv
+# Crear la carpeta de resultados si no existe
+mkdir -p results/results_base_server
+
+# Ejecutar el binario con ruta absoluta o relativa a la raíz
+./build/ember --width 2048 --height 2048 --steps 4096 --scenarios 5 --output results/results_base_server/ --export both
 
 echo "=================================================="
 echo "Simulación finalizada con éxito."
