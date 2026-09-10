@@ -30,6 +30,19 @@ cmake --build build-sanitize
 ctest --test-dir build-sanitize --output-on-failure
 ```
 
+The `avx` branch also provides an optional AVX2 path. Build it in a separate
+directory so the scalar baseline remains available for comparisons:
+
+```sh
+cmake -S . -B build-avx -DEMBER_ENABLE_AVX2=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-avx --config Release
+ctest --test-dir build-avx -C Release --output-on-failure
+```
+
+The executable checks AVX2 support at runtime and falls back to the scalar
+implementation when the CPU or operating system does not expose it. The AVX2
+path does not enable `fast-math`.
+
 ## Run
 
 ```sh
@@ -69,6 +82,10 @@ python scripts/run_benchmarks.py --executable ./build/ember --output benchmarks/
 ```
 
 The script performs one warm-up and five measured repetitions for each defined workload. It never enables grid export. See [benchmarks/README.md](benchmarks/README.md) for the matrix and reporting rules.
+
+On the `avx` branch, use the same command with the AVX2 executable and write
+to `benchmarks/benchmark_results_avx.csv` so the raw repetitions remain
+separate from the scalar baseline.
 
 ## Documentation
 

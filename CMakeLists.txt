@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.20)
 project(EMBER VERSION 0.1.0 LANGUAGES CXX)
 
 option(EMBER_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(EMBER_ENABLE_AVX2 "Build the optional AVX2 simulation path" OFF)
 
-add_library(ember_core
+set(EMBER_CORE_SOURCES
     src/config.cpp
     src/grid.cpp
     src/simulation.cpp
@@ -14,10 +15,31 @@ add_library(ember_core
     src/cli.cpp
 )
 
+if(EMBER_ENABLE_AVX2)
+    list(APPEND EMBER_CORE_SOURCES
+        src/avx2_support.cpp
+        src/simulation_avx2.cpp
+    )
+endif()
+
+add_library(ember_core ${EMBER_CORE_SOURCES})
+
 target_include_directories(ember_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(ember_core PUBLIC cxx_std_17)
 
+if(EMBER_ENABLE_AVX2)
+    target_compile_definitions(ember_core PRIVATE EMBER_ENABLE_AVX2=1)
+    if(MSVC)
+        set_source_files_properties(src/simulation_avx2.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
+    else()
+        set_source_files_properties(src/simulation_avx2.cpp PROPERTIES COMPILE_OPTIONS "-mavx2")
+    endif()
+else()
+    target_compile_definitions(ember_core PRIVATE EMBER_ENABLE_AVX2=0)
+endif()
+
 if(MSVC)
+    target_compile_options(ember_core PUBLIC /EHsc)
     target_compile_options(ember_core PRIVATE /W4 /permissive-)
 else()
     target_compile_options(ember_core PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
