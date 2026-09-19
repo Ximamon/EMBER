@@ -211,6 +211,9 @@ std::size_t WildfireSimulation::step_cell(
         return next.state[index] == CellState::Burning ? 1 : 0;
     }
 
+    // Calculate the probability of the target cell IGNITING from any of its burning neighbors.
+    // We use the independent probability rule: P(ignites) = 1 - P(does NOT ignite from ANY neighbor).
+    // P(does NOT ignite from ANY) = Product of (1 - P(ignite from neighbor i)).
     double probability_not_ignited = 1.0;
     for (int row_offset = -1; row_offset <= 1; ++row_offset) {
         for (int column_offset = -1; column_offset <= 1; ++column_offset) {
@@ -224,39 +227,13 @@ std::size_t WildfireSimulation::step_cell(
                 neighbor_column_signed >= static_cast<std::ptrdiff_t>(config_.width)) {
                 continue;
             }
-
-            // Calculate the probability of the target cell IGNITING from any of its burning neighbors.
-            // We use the independent probability rule: P(ignites) = 1 - P(does NOT ignite from ANY neighbor).
-            // P(does NOT ignite from ANY) = Product of (1 - P(ignite from neighbor i)).
-            double probability_not_ignited = 1.0;
-            for (int row_offset = -1; row_offset <= 1; ++row_offset) {
-                for (int column_offset = -1; column_offset <= 1; ++column_offset) {
-                    if (row_offset == 0 && column_offset == 0) {
-                        continue;
-                    }
-                    const auto neighbor_row_signed = static_cast<std::ptrdiff_t>(row) + row_offset;
-                    const auto neighbor_column_signed = static_cast<std::ptrdiff_t>(column) + column_offset;
-                    if (neighbor_row_signed < 0 || neighbor_column_signed < 0 ||
-                        neighbor_row_signed >= static_cast<std::ptrdiff_t>(config_.height) ||
-                        neighbor_column_signed >= static_cast<std::ptrdiff_t>(config_.width)) {
-                        continue;
-                    }
-                    const auto neighbor_row = static_cast<std::size_t>(neighbor_row_signed);
-                    const auto neighbor_column = static_cast<std::size_t>(neighbor_column_signed);
-                    const auto neighbor_index = neighbor_row * config_.width + neighbor_column;
-                    if (current.state[neighbor_index] == CellState::Burning) {
-                        const float probability = neighbor_probability(
-                            current, index, neighbor_index, -column_offset, -row_offset);
-                        probability_not_ignited *= 1.0 - static_cast<double>(probability);
-                    }
-                }
-            }
-            const double ignition_probability = 1.0 - probability_not_ignited;
-            const double draw = uniform01(keyed_hash(
-                scenario_seed_, random_tag::spread, as_u64(step_index), as_u64(index)));
-            next.state[index] = draw < ignition_probability ? CellState::Burning : CellState::Unburned;
-            if (next.state[index] == CellState::Burning) {
-                ++burning_next;
+            const auto neighbor_row = static_cast<std::size_t>(neighbor_row_signed);
+            const auto neighbor_column = static_cast<std::size_t>(neighbor_column_signed);
+            const auto neighbor_index = neighbor_row * config_.width + neighbor_column;
+            if (current.state[neighbor_index] == CellState::Burning) {
+                const float probability = neighbor_probability(
+                    current, index, neighbor_index, -column_offset, -row_offset);
+                probability_not_ignited *= 1.0 - static_cast<double>(probability);
             }
         }
     }

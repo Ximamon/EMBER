@@ -6,6 +6,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(EMBER_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(EMBER_ENABLE_AVX2 "Build the optional AVX2 simulation path" OFF)
 
+if(EMBER_ENABLE_AVX2)
+    list(APPEND EMBER_CORE_SOURCES
+        src/avx2_support.cpp
+        src/simulation_avx2.cpp
+    )
+endif()
+
 # Create the ember_core library from the source files
 # We use a library here so that we can link it to both the main executable and the test executable.
 add_library(ember_core
@@ -17,15 +24,6 @@ add_library(ember_core
     src/export.cpp
     src/cli.cpp
 )
-
-if(EMBER_ENABLE_AVX2)
-    list(APPEND EMBER_CORE_SOURCES
-        src/avx2_support.cpp
-        src/simulation_avx2.cpp
-    )
-endif()
-
-add_library(ember_core ${EMBER_CORE_SOURCES})
 
 target_include_directories(ember_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(ember_core PUBLIC cxx_std_17)
