@@ -98,6 +98,16 @@ private:
     float wind_y_{};
     bool initialized_{};
 
+    std::size_t step_scalar(std::size_t step_index);
+    std::size_t step_cell(
+        const ConstGridView& current,
+        GridView next,
+        std::size_t step_index,
+        std::size_t row,
+        std::size_t column) const;
+
+    std::size_t step_avx2(std::size_t step_index);
+
     float neighbor_probability(
         const ConstGridView& current,
         std::size_t target_index,

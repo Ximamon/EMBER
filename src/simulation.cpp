@@ -12,6 +12,10 @@
 
 #include "ember/random.hpp"
 
+#if EMBER_ENABLE_AVX2
+#include "avx2_support.hpp"
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -160,26 +164,64 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
     if (!initialized_) {
         throw std::logic_error("simulation must be initialized before stepping");
     }
+
+#if EMBER_ENABLE_AVX2
+    if (avx2_supported()) {
+        const auto burning_next = step_avx2(step_index);
+        grid_.swap_buffers();
+        return burning_next;
+    }
+#endif
+
+    const auto burning_next = step_scalar(step_index);
+    grid_.swap_buffers();
+    return burning_next;
+}
+
+std::size_t WildfireSimulation::step_scalar(std::size_t step_index) {
     const ConstGridView current = static_cast<const GridBuffers&>(grid_).current_view();
     auto next = grid_.next_view();
     std::size_t burning_next = 0;
 
     for (std::size_t row = 0; row < config_.height; ++row) {
         for (std::size_t column = 0; column < config_.width; ++column) {
-            const auto index = row * config_.width + column;
-            const auto state = current.state[index];
-            next.fuel[index] = current.fuel[index];
+            burning_next += step_cell(current, next, step_index, row, column);
+        }
+    }
+    return burning_next;
+}
 
-            if (state == CellState::NonCombustible || state == CellState::Burned) {
-                next.state[index] = state;
+std::size_t WildfireSimulation::step_cell(
+    const ConstGridView& current,
+    GridView next,
+    std::size_t step_index,
+    std::size_t row,
+    std::size_t column) const {
+    const auto index = row * config_.width + column;
+    const auto state = current.state[index];
+    next.fuel[index] = current.fuel[index];
+
+    if (state == CellState::NonCombustible || state == CellState::Burned) {
+        next.state[index] = state;
+        return 0;
+    }
+    if (state == CellState::Burning) {
+        next.fuel[index] = std::max(0.0F, current.fuel[index] - config_.burn_rate);
+        next.state[index] = next.fuel[index] <= 0.0F ? CellState::Burned : CellState::Burning;
+        return next.state[index] == CellState::Burning ? 1 : 0;
+    }
+
+    double probability_not_ignited = 1.0;
+    for (int row_offset = -1; row_offset <= 1; ++row_offset) {
+        for (int column_offset = -1; column_offset <= 1; ++column_offset) {
+            if (row_offset == 0 && column_offset == 0) {
                 continue;
             }
-            if (state == CellState::Burning) {
-                next.fuel[index] = std::max(0.0F, current.fuel[index] - config_.burn_rate);
-                next.state[index] = next.fuel[index] <= 0.0F ? CellState::Burned : CellState::Burning;
-                if (next.state[index] == CellState::Burning) {
-                    ++burning_next;
-                }
+            const auto neighbor_row_signed = static_cast<std::ptrdiff_t>(row) + row_offset;
+            const auto neighbor_column_signed = static_cast<std::ptrdiff_t>(column) + column_offset;
+            if (neighbor_row_signed < 0 || neighbor_column_signed < 0 ||
+                neighbor_row_signed >= static_cast<std::ptrdiff_t>(config_.height) ||
+                neighbor_column_signed >= static_cast<std::ptrdiff_t>(config_.width)) {
                 continue;
             }
 
@@ -218,8 +260,11 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
             }
         }
     }
-    grid_.swap_buffers();
-    return burning_next;
+    const double ignition_probability = 1.0 - probability_not_ignited;
+    const double draw = uniform01(keyed_hash(
+        scenario_seed_, random_tag::spread, as_u64(step_index), as_u64(index)));
+    next.state[index] = draw < ignition_probability ? CellState::Burning : CellState::Unburned;
+    return next.state[index] == CellState::Burning ? 1 : 0;
 }
 
 ScenarioStatistics WildfireSimulation::run() {
