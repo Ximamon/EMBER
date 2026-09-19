@@ -1,6 +1,5 @@
 add_executable(ember
     main.cpp
-    cli.cpp
 )
 
 target_include_directories(ember PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

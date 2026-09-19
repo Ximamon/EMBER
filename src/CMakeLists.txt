@@ -1,5 +1,6 @@
 add_library(
     ember_core
+    cli.cpp
     config.cpp
     export.cpp
     grid.cpp
