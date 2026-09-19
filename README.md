@@ -92,6 +92,13 @@ separate from the scalar baseline.
 - [Simplified propagation model](docs/model.md)
 - [CUDA readiness notes](docs/cuda-readiness.md)
 
+To generate and view the HTML API documentation locally using Doxygen:
+
+```sh
+doxygen Doxyfile
+open docs/html/index.html
+```
+
 ## License
 
 EMBER is released under the [MIT License](LICENSE).

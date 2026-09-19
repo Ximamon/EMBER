@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
-
 project(EMBER VERSION 0.1.0 LANGUAGES CXX)
 
+# Set various CMake options
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(EMBER_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(EMBER_ENABLE_AVX2 "Build the optional AVX2 simulation path" OFF)
 
-set(EMBER_CORE_SOURCES
+# Create the ember_core library from the source files
+# We use a library here so that we can link it to both the main executable and the test executable.
+add_library(ember_core
     src/config.cpp
     src/grid.cpp
     src/simulation.cpp
@@ -45,14 +48,17 @@ else()
     target_compile_options(ember_core PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 
+# Enable sanitizers if requested and not using MSVC
 if(EMBER_ENABLE_SANITIZERS AND NOT MSVC)
     target_compile_options(ember_core PUBLIC -fsanitize=address,undefined -fno-omit-frame-pointer)
     target_link_options(ember_core PUBLIC -fsanitize=address,undefined)
 endif()
 
+# Create the main executable and link it to the ember_core library
 add_executable(ember src/main.cpp)
 target_link_libraries(ember PRIVATE ember_core)
 
+# Create the test executable and link it to the ember_core library
 enable_testing()
 add_executable(ember_tests tests/ember_tests.cpp)
 target_link_libraries(ember_tests PRIVATE ember_core)

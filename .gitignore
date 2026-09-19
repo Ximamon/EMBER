@@ -1,8 +1,12 @@
 /build/
 /build-*/
 /out/
-/results/*
 !/results/.gitkeep
+*_final.csv
 __pycache__/
 *.pyc
 *.ppm
+.idea
+.vscode
+*.err
+*.out

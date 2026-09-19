@@ -1,3 +1,13 @@
+/**
+ * @file cli.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Implementation of the command-line interface.
+ * @version 0.1
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/cli.hpp"
 
 #include <cstddef>
@@ -10,6 +20,15 @@
 namespace ember {
 namespace {
 
+/**
+ * @brief Ensures that an option has a corresponding value and returns it.
+ * @param index The current argument index, which will be incremented.
+ * @param argc The total number of arguments.
+ * @param argv The argument array.
+ * @param option The name of the option being parsed (for error reporting).
+ * @return The value associated with the option.
+ * @throws std::invalid_argument If the value is missing.
+ */
 std::string require_value(int& index, int argc, const char* const argv[], const std::string& option) {
     if (index + 1 >= argc) {
         throw std::invalid_argument("missing value for " + option);
@@ -18,7 +37,16 @@ std::string require_value(int& index, int argc, const char* const argv[], const 
     return argv[index];
 }
 
+/**
+ * @brief Parses a 64-bit unsigned integer from a string.
+ * @param text The string to parse.
+ * @param option The name of the option being parsed (for error reporting).
+ * @return The parsed unsigned integer.
+ * @throws std::invalid_argument If the string is empty, negative, or invalid.
+ */
 std::uint64_t parse_u64(const std::string& text, const std::string& option) {
+    // std::stoull silently wraps negative numbers due to two's complement conversion, 
+    // so we must explicitly check for a leading minus sign to reject invalid inputs.
     if (text.empty() || text.front() == '-') {
         throw std::invalid_argument("invalid non-negative integer for " + option + ": " + text);
     }
@@ -34,6 +62,12 @@ std::uint64_t parse_u64(const std::string& text, const std::string& option) {
     }
 }
 
+/**
+ * @brief Parses a size_t value from a string.
+ * @param text The string to parse.
+ * @param option The name of the option being parsed.
+ * @return The parsed size_t value.
+ */
 std::size_t parse_size(const std::string& text, const std::string& option) {
     const auto value = parse_u64(text, option);
     if (value > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
@@ -42,6 +76,12 @@ std::size_t parse_size(const std::string& text, const std::string& option) {
     return static_cast<std::size_t>(value);
 }
 
+/**
+ * @brief Parses a floating-point value from a string.
+ * @param text The string to parse.
+ * @param option The name of the option being parsed.
+ * @return The parsed float value.
+ */
 float parse_float(const std::string& text, const std::string& option) {
     std::size_t consumed = 0;
     try {
@@ -55,6 +95,11 @@ float parse_float(const std::string& text, const std::string& option) {
     }
 }
 
+/**
+ * @brief Parses an ignition point from a comma-separated string (e.g., "128,256").
+ * @param text The string to parse.
+ * @return The parsed IgnitionPoint struct.
+ */
 IgnitionPoint parse_ignition(const std::string& text) {
     const auto comma = text.find(',');
     if (comma == std::string::npos || text.find(',', comma + 1) != std::string::npos) {
@@ -64,6 +109,11 @@ IgnitionPoint parse_ignition(const std::string& text) {
             parse_size(text.substr(comma + 1), "--ignition")};
 }
 
+/**
+ * @brief Parses the export format from a string.
+ * @param text The string to parse (e.g., "csv", "ppm").
+ * @return The parsed ExportFormat enum.
+ */
 ExportFormat parse_export_format(const std::string& text) {
     if (text == "none") return ExportFormat::None;
     if (text == "csv") return ExportFormat::Csv;
@@ -75,6 +125,8 @@ ExportFormat parse_export_format(const std::string& text) {
 } // namespace
 
 CliOptions parse_cli(int argc, const char* const argv[]) {
+    // We implement a custom, lightweight CLI parser to keep EMBER dependency-free 
+    // (avoiding heavy libraries like Boost.Program_options or CLI11).
     CliOptions options;
     for (int index = 1; index < argc; ++index) {
         const std::string option(argv[index]);

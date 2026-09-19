@@ -11,7 +11,10 @@ import shutil
 import subprocess
 import tempfile
 
-
+"""
+MATRIX defines the benchmark workloads to run. Each workload is a tuple of: 
+    (width, height, max_steps, scenarios)
+"""
 MATRIX = (
     (256, 256, 250, 1),
     (256, 256, 250, 20),
@@ -23,6 +26,7 @@ MATRIX = (
     (2048, 2048, 250, 5),
 )
 
+"""FIELDS defines the CSV columns to write for each benchmark run."""
 FIELDS = (
     "timestamp_utc", "width", "height", "max_steps", "scenarios", "seed",
     "repetition", "cell_updates", "initialization_seconds", "simulation_seconds",
@@ -34,19 +38,43 @@ FIELDS = (
 
 def run_once(executable: pathlib.Path, workload: tuple[int, int, int, int], seed: int,
              output_dir: pathlib.Path) -> dict[str, str]:
+    """
+    Run 'executable' with the given workload and seed, writing results to 'output_dir'
+
+    Parameters:
+        executable: Path to the executable to run.
+        workload: A tuple of (width, height, max_steps, scenarios) defining the benchmark workload.
+        seed: Random seed to use for the benchmark run.
+        output_dir: Directory where the benchmark output will be written.
+
+    Returns:
+        A dictionary containing the benchmark results.
+    """
     width, height, steps, scenarios = workload
+
     command = [
         str(executable), "--width", str(width), "--height", str(height),
         "--steps", str(steps), "--scenarios", str(scenarios), "--seed", str(seed),
         "--output", str(output_dir), "--export", "none",
     ]
+
     subprocess.run(command, check=True)
     with (output_dir / "summary.csv").open(newline="", encoding="utf-8") as source:
         batch = next(row for row in csv.DictReader(source) if row["record_type"] == "batch")
+
     return batch
 
 
-def main() -> int:
+def main():
+    """
+    Run the benchmark matrix and write results to a CSV file.
+    """
+
+    """
+    We use argparse to parse command-line arguments for the benchmark script. 
+    The required argument is the path to the executable, and optional arguments include the output CSV file path, 
+    random seed, and number of repetitions for each workload.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executable", required=True, type=pathlib.Path)
     parser.add_argument("--output", type=pathlib.Path,
@@ -55,15 +83,22 @@ def main() -> int:
     parser.add_argument("--repetitions", type=int, default=5)
     args = parser.parse_args()
 
+    # We resolve the executable path and check if it exists. If not, we raise an error. 
+    # We also ensure that the number of repetitions is at least 1.
     executable = args.executable.resolve()
     if not executable.is_file():
         parser.error(f"executable does not exist: {executable}")
     if args.repetitions < 1:
         parser.error("--repetitions must be at least 1")
 
+    # We create the output directory if it doesn't exist.
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    # We check if the output CSV file exists and is empty. If it doesn't exist or is empty, we will write the header row to the CSV file.
     write_header = not args.output.exists() or args.output.stat().st_size == 0
+    # We create a temporary directory to store the benchmark output for each workload and repetition.
     temporary_root = pathlib.Path(tempfile.mkdtemp(prefix="ember-bench-"))
+    # We use a try-finally block to ensure that the temporary directory is cleaned up after the benchmark runs, even if an error occurs.
+    # Also we open the output CSV file in append mode and create a CSV DictWriter to write the benchmark results.
     try:
         with args.output.open("a", newline="", encoding="utf-8") as destination:
             writer = csv.DictWriter(destination, fieldnames=FIELDS)
@@ -95,7 +130,6 @@ def main() -> int:
                     destination.flush()
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
-    return 0
 
 
 if __name__ == "__main__":
