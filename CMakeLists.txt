@@ -3,8 +3,16 @@ project(EMBER VERSION 0.1.0 LANGUAGES CXX)
 
 # Set various CMake options
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-option(EMBER_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
-option(EMBER_ENABLE_AVX2 "Build the optional AVX2 simulation path" OFF)
+option(
+    EMBER_ENABLE_SANITIZERS 
+    "Enable AddressSanitizer and UndefinedBehaviorSanitizer" 
+    OFF
+)
+option(
+    EMBER_ENABLE_AVX2 
+    "Build the optional AVX2 simulation path" 
+    OFF
+)
 
 if(EMBER_ENABLE_AVX2)
     list(APPEND EMBER_CORE_SOURCES
