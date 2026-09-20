@@ -24,7 +24,15 @@ echo "=================================================="
 mkdir -p results/results_base_server
 
 # Ejecutar el binario con ruta absoluta o relativa a la raíz
-./build/ember --width 2048 --height 2048 --steps 4096 --scenarios 5 --output results/results_base_server/ --export both
+./build/ember \
+    --width 1024 \
+    --height 1024 \
+    --steps 500 \
+    --scenarios 5 \
+    --base-spread 0.80 \
+    --wind-strength 0.8 \
+    --wind-direction 45 \
+    --output results/results_server/ \
 
 echo "=================================================="
 echo "Simulación finalizada con éxito."

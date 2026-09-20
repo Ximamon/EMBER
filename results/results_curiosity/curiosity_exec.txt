@@ -1,0 +1,43 @@
+==================================================
+Work ID: 3800
+Node: gpu001
+Date: Sun Sep 20 04:20:42 AM PDT 2026
+==================================================
+========================================================
+          EMBER STATELESS RNG MICRO-BENCHMARK           
+========================================================
+Iterations: 100000000
+
+[1] Pure keyed_hash (mix64 + hash_combine):
+  - Elapsed time: 0.235600 s
+  - Throughput:   424.45 MHash/s
+  - Latency:      2.356 ns / hash
+
+[2] Full RNG draw (keyed_hash + uniform01 float conversion):
+  - Elapsed time: 0.274136 s
+  - Throughput:   364.78 MDraw/s
+  - Latency:      2.741 ns / draw
+========================================================
+Sanity check (checksums): hash=4772807726037087095, draw=50000404.415
+--------------------------------------------------
+EMBER
+Grid: 1024 x 1024
+Maximum steps: 500
+Scenarios: 5
+Seed: 42
+Initialization time: 0.163629 s
+Simulation time: 13.171281 s
+  ├── Stencil compute: 13.170971 s (100.00 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 13.334910 s
+Mean scenario time: 2.666982 s
+Mean step time: 5.269 ms
+Cell updates: 2621440000
+Throughput: 199026954 cell updates/s
+Mean burned area: 38.028 %
+Completed scenarios: 5
+Extinguished scenarios: 0
+Max-step scenarios: 5
+Summary: results/results_curiosity/summary.csv
+==================================================
+Execution completed successfully.

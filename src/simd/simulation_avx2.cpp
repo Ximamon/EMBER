@@ -168,6 +168,12 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
                     }
                     continue;
                 }
+                
+                // If any neighbor isnt burning, we can skip the ignition probability calculation for this cell.
+                if (probability_not_ignited[lane] >= 1.0) {
+                    next.state[cell_index] = CellState::Unburned;
+                    continue;
+                }
 
                 const double ignition_probability = 1.0 - probability_not_ignited[lane];
                 const double draw = uniform01(keyed_hash(

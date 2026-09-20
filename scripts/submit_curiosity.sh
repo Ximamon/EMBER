@@ -31,8 +31,10 @@ echo "--------------------------------------------------"
     --height 1024 \
     --steps 500 \
     --scenarios 5 \
+    --base-spread 0.80 \
+    --wind-strength 0.8 \
+    --wind-direction 45 \
     --output results/results_curiosity/ \
-    --export both
 
 echo "=================================================="
 echo "Execution completed successfully."
