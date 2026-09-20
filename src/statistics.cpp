@@ -38,6 +38,8 @@ void finalize_batch_statistics(BatchStatistics& statistics) {
         statistics.total_step_compute_seconds += scenario.step_compute_seconds;
         statistics.total_swap_seconds += scenario.swap_seconds;
         statistics.total_core_seconds += scenario.total_core_seconds;
+        total_steps += scenario.steps_executed;
+        
         if (scenario.termination == TerminationReason::Extinguished) {
             ++statistics.extinguished_scenarios;
         } else {
