@@ -18,7 +18,7 @@ echo "=================================================="
 cd ~/EMBER
 
 # Create the results directory if it doesn't exist
-mkdir -p results_curiosity/
+mkdir -p results/results_curiosity/
 
 # 1. Launch the RNG benchmark
 ./build/ember --benchmark-rng
@@ -26,7 +26,13 @@ mkdir -p results_curiosity/
 echo "--------------------------------------------------"
 
 # 2. Full simulation with specified parameters
-./build/ember --width 1024 --height 1024 --steps 500 --scenarios 5 --output results_curiosity/
+./build/ember \
+    --width 1024 \
+    --height 1024 \
+    --steps 500 \
+    --scenarios 5 \
+    --output results/results_curiosity/ \
+    --export both
 
 echo "=================================================="
 echo "Execution completed successfully."

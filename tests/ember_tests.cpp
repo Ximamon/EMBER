@@ -162,7 +162,7 @@ void test_non_combustible_and_double_buffer() {
 }
 
 void test_grid_edges() {
-    for (const auto dimensions : std::vector<std::pair<std::size_t, std::size_t>>{{1, 1}, {1, 7}, {7, 1}}) {
+    for (const auto &dimensions : std::vector<std::pair<std::size_t, std::size_t>>{{1, 1}, {1, 7}, {7, 1}}) {
         auto config = small_config(dimensions.first, dimensions.second);
         const auto statistics = ember::run_scenario(config, 0);
         CHECK(statistics.cell_updates == static_cast<std::uint64_t>(dimensions.first * dimensions.second) *
