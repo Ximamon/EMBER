@@ -38,5 +38,9 @@ mpirun -np 4 \
     --height 1024 \
     --steps 500 \
     --scenarios 20 \
+    --seed 42 \
+    --base-spread 0.80 \
+    --wind-strength 0.8 \
+    --wind-direction 45 \
     --export none \
     --output results/results_mpi/

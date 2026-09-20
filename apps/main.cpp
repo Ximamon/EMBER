@@ -73,6 +73,7 @@ int main(int argc, const char* argv[]) {
         // Execute the full simulation batch. This is a blocking operation that processes all scenarios sequentially.
         const auto statistics = ember::run_batch(options.config);
         
+        // Only Rank 0 reports the consolidated metrics to the terminal
         if (rank == 0) {
             std::cout << "EMBER\n"
 #if EMBER_ENABLE_MPI
@@ -84,7 +85,12 @@ int main(int argc, const char* argv[]) {
                       << "Seed: " << options.config.seed << '\n'
                       << std::fixed << std::setprecision(6)
                       << "Initialization time: " << statistics.total_initialization_seconds << " s\n"
-                      << "Simulation time: " << statistics.total_simulation_seconds << " s\n";
+#if EMBER_ENABLE_MPI
+                      << (world_size > 1 ? "Simulation time (Wall-clock): " : "Simulation time: ")
+#else
+                      << "Simulation time: "
+#endif
+                      << statistics.total_simulation_seconds << " s\n";
 
             // Step profiling
             if (statistics.total_simulation_seconds > 0.0) {
@@ -103,13 +109,33 @@ int main(int argc, const char* argv[]) {
                       << "Mean step time: " << (statistics.mean_step_seconds * 1000.0) << " ms\n"
                       << "Cell updates: " << statistics.total_cell_updates << '\n'
                       << std::setprecision(0)
-                      << "Throughput: " << statistics.throughput_cell_updates_per_second
+#if EMBER_ENABLE_MPI
+                      << (world_size > 1 ? "Cluster Throughput: " : "Throughput: ")
+#else
+                      << "Throughput: "
+#endif
+                      << statistics.throughput_cell_updates_per_second
                       << " cell updates/s\n"
                       << std::setprecision(3)
                       << "Mean burned area: " << statistics.mean_burned_percent << " %\n"
                       << "Completed scenarios: " << statistics.completed_scenarios << '\n'
                       << "Extinguished scenarios: " << statistics.extinguished_scenarios << '\n'
                       << "Max-step scenarios: " << statistics.max_steps_scenarios << '\n';
+
+#if EMBER_ENABLE_MPI
+            if (world_size > 1) {
+                const double aggregate_cpu_time = statistics.mean_scenario_seconds * static_cast<double>(options.config.scenarios);
+                const double speedup = statistics.total_simulation_seconds > 0.0
+                                           ? aggregate_cpu_time / statistics.total_simulation_seconds
+                                           : 1.0;
+                std::cout << "--------------------------------------------------\n"
+                          << "Multi-Node Scaling Metrics:\n"
+                          << "  ├── Aggregate Core-Work: " << aggregate_cpu_time << " s\n"
+                          << "  └── Effective Speedup:   " << std::setprecision(2) << speedup << "x / "
+                          << world_size << ".00x (" << std::setprecision(1) << (speedup / world_size * 100.0) << " % efficiency)\n";
+            }
+#endif
+
             if (!options.config.output_directory.empty()) {
                 std::cout << "Summary: " << options.config.output_directory << "/summary.csv\n";
             }

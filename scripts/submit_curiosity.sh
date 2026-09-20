@@ -30,10 +30,12 @@ echo "--------------------------------------------------"
     --width 1024 \
     --height 1024 \
     --steps 500 \
-    --scenarios 5 \
+    --scenarios 20 \
+    --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
     --wind-direction 45 \
+    --export none \
     --output results/results_curiosity/ \
 
 echo "=================================================="

@@ -48,8 +48,11 @@ BatchStatistics run_batch(const SimulationConfig& config) {
     // Ensure configuration integrity before allocating any large grid buffers or creating directories.
     validate_config(config);
 
-    int rank = 0;
-    int world_size = 1;
+    using clock = std::chrono::steady_clock;
+    const auto batch_wall_start = clock::now();
+
+    int rank = 0;           // Current MPI rank (process ID)
+    int world_size = 1;     // Total number of MPI ranks (processes), 1 if MPI is not enabled, menas that the simulation is running in a single process.
 
 #if EMBER_ENABLE_MPI
     int mpi_initialized = 0;
@@ -131,8 +134,25 @@ BatchStatistics run_batch(const SimulationConfig& config) {
     }
 #endif
 
+const auto batch_wall_end = clock::now(); // <-- Fin cronómetro de pared
+    const double wall_clock_seconds =
+        std::chrono::duration<double>(batch_wall_end - batch_wall_start).count();
+
     if (rank == 0) {
         finalize_batch_statistics(batch);
+
+        // On multi-node parallel execution, replace with the actual elapsed wall-clock time
+        if (world_size > 1) {
+            batch.total_simulation_seconds = wall_clock_seconds;
+            batch.total_core_seconds = wall_clock_seconds;
+            batch.total_step_compute_seconds /= static_cast<double>(world_size);
+            batch.total_swap_seconds /= static_cast<double>(world_size);
+            batch.throughput_cell_updates_per_second =
+                wall_clock_seconds > 0.0
+                    ? static_cast<double>(batch.total_cell_updates) / wall_clock_seconds
+                    : 0.0;
+        }
+
         if (!config.output_directory.empty()) {
             export_summary_csv(output_directory / "summary.csv", batch);
         }
