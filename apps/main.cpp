@@ -15,6 +15,7 @@
 #include <exception>
 #include <iomanip>
 #include <iostream>
+#include <cstring>
 
 int main(int argc, const char* argv[]) {
 
