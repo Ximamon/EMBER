@@ -1,9 +1,9 @@
 function(ember_configure_simd TARGET_NAME)
-    if(NOT EMBER_ENABLE_AVX2)
+    if(NOT AVX2)
         target_compile_definitions(
             ${TARGET_NAME}
             PRIVATE
-            EMBER_ENABLE_AVX2=0
+            AVX2=0
         )
         return()
     endif()
@@ -23,12 +23,12 @@ function(ember_configure_simd TARGET_NAME)
 
         target_compile_options(${TARGET_NAME} PRIVATE -mavx2)
 
-        target_compile_definitions(${TARGET_NAME} PRIVATE EMBER_ENABLE_AVX2=1)
+        target_compile_definitions(${TARGET_NAME} PRIVATE AVX2=1)
     else()
         message(
             WARNING
             "AVX2 not supported on ${CMAKE_SYSTEM_PROCESSOR} architecture. SIMD compile path disabled"
         )
-        target_compile_definitions(${TARGET_NAME} PRIVATE EMBER_ENABLE_AVX2=0)
+        target_compile_definitions(${TARGET_NAME} PRIVATE AVX2=0)
     endif()
 endfunction()

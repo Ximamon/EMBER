@@ -98,6 +98,11 @@ private:
     float wind_y_{};
     bool initialized_{};
 
+    double step_compute_seconds_{0.0};
+    double swap_seconds_{0.0};
+    double min_step_seconds_{0.0};
+    double max_step_seconds_{0.0};
+
     std::size_t step_scalar(std::size_t step_index);
     std::size_t step_cell(
         const ConstGridView& current,

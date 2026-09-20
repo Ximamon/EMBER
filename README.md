@@ -34,7 +34,7 @@ The `avx` branch also provides an optional AVX2 path. Build it in a separate
 directory so the scalar baseline remains available for comparisons:
 
 ```sh
-cmake -S . -B build-avx -DEMBER_ENABLE_AVX2=ON -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build-avx -DAVX2=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build-avx --config Release
 ctest --test-dir build-avx -C Release --output-on-failure
 ```

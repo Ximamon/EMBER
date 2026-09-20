@@ -24,13 +24,19 @@ void finalize_batch_statistics(BatchStatistics& statistics) {
     statistics.mean_burned_percent = 0.0;
     statistics.total_initialization_seconds = 0.0;
     statistics.total_simulation_seconds = 0.0;
+    statistics.total_step_compute_seconds = 0.0;
+    statistics.total_swap_seconds = 0.0;
     statistics.total_core_seconds = 0.0;
+
+    std::size_t total_steps = 0;
 
     for (const auto& scenario : statistics.scenario_results) {
         statistics.total_cell_updates += scenario.cell_updates;
         statistics.mean_burned_percent += scenario.burned_percent;
         statistics.total_initialization_seconds += scenario.initialization_seconds;
         statistics.total_simulation_seconds += scenario.simulation_seconds;
+        statistics.total_step_compute_seconds += scenario.step_compute_seconds;
+        statistics.total_swap_seconds += scenario.swap_seconds;
         statistics.total_core_seconds += scenario.total_core_seconds;
         if (scenario.termination == TerminationReason::Extinguished) {
             ++statistics.extinguished_scenarios;
@@ -43,8 +49,13 @@ void finalize_batch_statistics(BatchStatistics& statistics) {
         const auto count = static_cast<double>(statistics.completed_scenarios);
         statistics.mean_burned_percent /= count;
         statistics.mean_scenario_seconds = statistics.total_core_seconds / count;
+        statistics.mean_step_seconds =
+            total_steps > 0
+                ? statistics.total_simulation_seconds / static_cast<double>(total_steps)
+                : 0.0;
     } else {
         statistics.mean_scenario_seconds = 0.0;
+        statistics.mean_step_seconds = 0.0;
     }
     // Throughput is calculated using ONLY simulation_seconds (excluding initialization) 
     // to isolate the performance of the core computational engine.

@@ -168,7 +168,7 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
 
 void print_help(std::ostream& output) {
     output <<
-        "EMBER CPU baseline - stochastic wildfire simulator\n\n"
+        "EMBER - stochastic wildfire simulator\n\n"
         "Usage: ember [options]\n\n"
         "Options:\n"
         "  --width N                 Grid width (default: 512)\n"
@@ -183,6 +183,7 @@ void print_help(std::ostream& output) {
         "  --ignition X,Y            Ignition point; may be repeated (default: center)\n"
         "  --output DIRECTORY        Write summary.csv in this directory\n"
         "  --export FORMAT           none, csv, ppm, or both (default: none)\n"
+        "  --benchmark-rng N         Benchmark RNG performance with N iterations (default: 100.000.000)\n"
         "  -h, --help                Show this help\n";
 }
 

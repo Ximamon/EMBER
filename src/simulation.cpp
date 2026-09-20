@@ -12,7 +12,7 @@
 
 #include "ember/random.hpp"
 
-#if EMBER_ENABLE_AVX2
+#if AVX2
 #include "avx2_support.hpp"
 #endif
 
@@ -21,6 +21,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <utility>
+#include <limits>
 
 namespace ember {
 namespace {
@@ -59,6 +60,11 @@ WildfireSimulation::WildfireSimulation(SimulationConfig config, std::uint64_t sc
 }
 
 void WildfireSimulation::initialize() {
+    step_compute_seconds_ = 0.0;
+    swap_seconds_ = 0.0;
+    min_step_seconds_ = std::numeric_limits<double>::infinity();
+    max_step_seconds_ = 0.0;
+
     grid_ = GridBuffers(config_.width, config_.height);
     auto current = grid_.current_view();
     auto next = grid_.next_view();
@@ -165,16 +171,43 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
         throw std::logic_error("simulation must be initialized before stepping");
     }
 
-#if EMBER_ENABLE_AVX2
+    using clock = std::chrono::steady_clock;
+    const auto step_start = clock::now();
+
+    // Time the compute phase.
+    const auto compute_start = step_start;
+    std::size_t burning_next = 0;
+
+#if AVX2
     if (avx2_supported()) {
-        const auto burning_next = step_avx2(step_index);
-        grid_.swap_buffers();
-        return burning_next;
+        burning_next = step_avx2(step_index);
+    } else {
+        burning_next = step_scalar(step_index);
     }
+#else
+    burning_next = step_scalar(step_index);
 #endif
 
-    const auto burning_next = step_scalar(step_index);
+    const auto compute_end = clock::now();
+    const double compute_time = std::chrono::duration<double>(compute_end - compute_start).count();
+    step_compute_seconds_ += compute_time;
+
+    // Time the buffer swap phase.
+    const auto swap_start = clock::now();
     grid_.swap_buffers();
+    const auto swap_end = clock::now();
+    const double swap_time = std::chrono::duration<double>(swap_end - swap_start).count();
+    swap_seconds_ += swap_time;
+
+    // Update min/max step times for performance analysis.
+    const double step_total = std::chrono::duration<double>(swap_end - step_start).count();
+    if (step_total < min_step_seconds_) {
+        min_step_seconds_ = step_total;
+    }
+    if (step_total > max_step_seconds_) {
+        max_step_seconds_ = step_total;
+    }
+
     return burning_next;
 }
 
@@ -301,6 +334,18 @@ ScenarioStatistics WildfireSimulation::run() {
         statistics.simulation_seconds > 0.0
             ? static_cast<double>(statistics.cell_updates) / statistics.simulation_seconds
             : 0.0;
+
+    // Step timing statistics for performance analysis.
+    statistics.step_compute_seconds = step_compute_seconds_;
+    statistics.swap_seconds = swap_seconds_;
+    statistics.min_step_seconds =
+        statistics.steps_executed > 0 ? min_step_seconds_ : 0.0;
+    statistics.max_step_seconds = max_step_seconds_;
+    statistics.mean_step_seconds =
+        statistics.steps_executed > 0
+            ? (statistics.simulation_seconds / static_cast<double>(statistics.steps_executed))
+            : 0.0;
+            
     return statistics;
 }
 

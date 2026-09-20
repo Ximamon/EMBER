@@ -58,6 +58,13 @@ struct ScenarioStatistics {
     double initialization_seconds{};
     /// @brief Simulation time in seconds for the simulation.
     double simulation_seconds{};
+
+    double step_compute_seconds{};
+    double swap_seconds{};
+    double min_step_seconds{};
+    double max_step_seconds{};
+    double mean_step_seconds{};
+
     /// @brief Total core time in seconds for the simulation.
     double total_core_seconds{};
     /// @brief Throughput of cell updates per second.
@@ -85,6 +92,11 @@ struct BatchStatistics {
     double total_initialization_seconds{};
     /// @brief Total simulation time in seconds across all scenarios.
     double total_simulation_seconds{};
+    
+    double total_step_compute_seconds{};
+    double total_swap_seconds{};
+    double mean_step_seconds{};
+    
     /// @brief Total core execution time in seconds across all scenarios.
     double total_core_seconds{};
     /// @brief Mean execution time per scenario in seconds.

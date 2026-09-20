@@ -10,7 +10,10 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
 
 namespace ember {
 
@@ -107,5 +110,64 @@ namespace random_tag {
     /// @brief Tag for fire spread random number generation.
     constexpr std::uint64_t spread = 0x53505244ULL;
 } // namespace random_tag
+
+inline void run_rng_benchmark(std::size_t iters = 100'000'000) {
+    using clock = std::chrono::high_resolution_clock;
+    
+    const std::uint64_t seed = 42ULL; // ULL (Unsigned Long Long) to ensure it's treated as a 64-bit unsigned integer
+    const std::uint64_t step = 10ULL;
+
+    std::cout << "========================================================\n"
+              << "          EMBER STATELESS RNG MICRO-BENCHMARK           \n"
+              << "========================================================\n"
+              << "Iterations: " << iters << "\n\n";
+
+    // ---------------------------------------------------------
+    // TEST 1: 64 bits of keyed_hash only (mix64 + hash_combine)
+    // ---------------------------------------------------------
+    volatile std::uint64_t hash_sink = 0; // volatile evita que el compilador elimine el bucle (-O3)
+    std::uint64_t accum_hash = 0;
+
+    const auto start_hash = clock::now();
+    for (std::size_t i = 0; i < iters; ++i) {
+        accum_hash ^= keyed_hash(seed, random_tag::spread, step, static_cast<std::uint64_t>(i));
+    }
+    const auto end_hash = clock::now();
+    hash_sink = accum_hash;
+
+    const double sec_hash = std::chrono::duration<double>(end_hash - start_hash).count();
+    const double mhash_per_sec = (static_cast<double>(iters) / sec_hash) / 1e6;
+    const double ns_per_hash = (sec_hash / static_cast<double>(iters)) * 1e9;
+
+    std::cout << "[1] Pure keyed_hash (mix64 + hash_combine):\n"
+              << "  - Elapsed time: " << std::fixed << std::setprecision(6) << sec_hash << " s\n"
+              << "  - Throughput:   " << std::setprecision(2) << mhash_per_sec << " MHash/s\n"
+              << "  - Latency:      " << std::setprecision(3) << ns_per_hash << " ns / hash\n\n";
+
+    // ---------------------------------------------------------
+    // TEST 2: Complete RNG draw (keyed_hash + uniform01 float conversion)
+    // ---------------------------------------------------------
+    volatile double float_sink = 0.0;
+    double accum_draw = 0.0;
+
+    const auto start_draw = clock::now();
+    for (std::size_t i = 0; i < iters; ++i) {
+        const auto hash_val = keyed_hash(seed, random_tag::spread, step, static_cast<std::uint64_t>(i));
+        accum_draw += uniform01(hash_val);
+    }
+    const auto end_draw = clock::now();
+    float_sink = accum_draw;
+
+    const double sec_draw = std::chrono::duration<double>(end_draw - start_draw).count();
+    const double mdraw_per_sec = (static_cast<double>(iters) / sec_draw) / 1e6;
+    const double ns_per_draw = (sec_draw / static_cast<double>(iters)) * 1e9;
+
+    std::cout << "[2] Full RNG draw (keyed_hash + uniform01 float conversion):\n"
+              << "  - Elapsed time: " << std::fixed << std::setprecision(6) << sec_draw << " s\n"
+              << "  - Throughput:   " << std::setprecision(2) << mdraw_per_sec << " MDraw/s\n"
+              << "  - Latency:      " << std::setprecision(3) << ns_per_draw << " ns / draw\n"
+              << "========================================================\n"
+              << "Sanity check (checksums): hash=" << hash_sink << ", draw=" << float_sink << "\n";
+}
 
 } // namespace ember

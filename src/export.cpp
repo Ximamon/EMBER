@@ -85,26 +85,51 @@ void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid) {
 
 void export_summary_csv(const std::filesystem::path& path, const BatchStatistics& statistics) {
     auto output = open_output(path);
+    
     output << "record_type,scenario_id,scenario_seed,steps_executed,termination,extinguished_at_step,"
               "burned_cells,burned_percent,cell_updates,initialization_seconds,simulation_seconds,"
+              "step_compute_seconds,swap_seconds,mean_step_seconds,min_step_seconds,max_step_seconds,"
               "total_core_seconds,throughput_cell_updates_per_second,mean_scenario_seconds,"
               "completed_scenarios,extinguished_scenarios,max_steps_scenarios\n";
-    output << std::setprecision(12);
+
+    output << std::setprecision(30);
+
     for (const auto& scenario : statistics.scenario_results) {
-        output << "scenario," << scenario.scenario_id << ',' << scenario.scenario_seed << ','
-               << scenario.steps_executed << ',' << to_string(scenario.termination) << ','
-               << scenario.extinguished_at_step << ',' << scenario.burned_cells << ','
-               << scenario.burned_percent << ',' << scenario.cell_updates << ','
-               << scenario.initialization_seconds << ',' << scenario.simulation_seconds << ','
+        output << "scenario,"
+               << scenario.scenario_id << ','
+               << scenario.scenario_seed << ','
+               << scenario.steps_executed << ','
+               << to_string(scenario.termination) << ','
+               << scenario.extinguished_at_step << ','
+               << scenario.burned_cells << ','
+               << scenario.burned_percent << ','
+               << scenario.cell_updates << ','
+               << scenario.initialization_seconds << ','
+               << scenario.simulation_seconds << ','
+               << scenario.step_compute_seconds << ','
+               << scenario.swap_seconds << ','
+               << scenario.mean_step_seconds << ','
+               << scenario.min_step_seconds << ','
+               << scenario.max_step_seconds << ','
                << scenario.total_core_seconds << ','
                << scenario.throughput_cell_updates_per_second << ",,,,\n";
     }
-    output << "batch,,,,,,," << statistics.mean_burned_percent << ','
-           << statistics.total_cell_updates << ',' << statistics.total_initialization_seconds << ','
-           << statistics.total_simulation_seconds << ',' << statistics.total_core_seconds << ','
+
+    output << "batch,,,,,,,"
+           << statistics.mean_burned_percent << ','
+           << statistics.total_cell_updates << ','
+           << statistics.total_initialization_seconds << ','
+           << statistics.total_simulation_seconds << ','
+           << statistics.total_step_compute_seconds << ','
+           << statistics.total_swap_seconds << ','
+           << statistics.mean_step_seconds << ",,,"
+           << statistics.total_core_seconds << ','
            << statistics.throughput_cell_updates_per_second << ','
-           << statistics.mean_scenario_seconds << ',' << statistics.completed_scenarios << ','
-           << statistics.extinguished_scenarios << ',' << statistics.max_steps_scenarios << '\n';
+           << statistics.mean_scenario_seconds << ','
+           << statistics.completed_scenarios << ','
+           << statistics.extinguished_scenarios << ','
+           << statistics.max_steps_scenarios << '\n';
+
     if (!output) {
         throw std::runtime_error("failed while writing summary CSV: " + path.string());
     }

@@ -16,7 +16,7 @@ option(
 )
 
 option(
-  EMBER_ENABLE_AVX2
+  AVX2
   "Compile with AVX2 support"
   OFF
 )
