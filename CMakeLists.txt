@@ -59,6 +59,27 @@ option(
   ON
 )
 
+option(
+  EMBER_ENABLE_CUDA
+  "Compile with CUDA support for GPUs"
+  ON
+)
+
+if(EMBER_ENABLE_CUDA)
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+        set(CMAKE_CUDA_ARCHITECTURES 80) # sm_80 for NVIDIA A100 on Curiosity
+        message(STATUS "CUDA enabled: ${CMAKE_CUDA_COMPILER}")
+    else()
+        message(WARNING "CUDA requested but 'nvcc' not found. Disable CUDA.")
+        set(EMBER_ENABLE_CUDA OFF CACHE BOOL "" FORCE)
+    endif()
+endif()
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 # Load external modules
@@ -70,7 +91,8 @@ list(
 include(CompilerWarnings)
 include(Sanitizers)
 include(SimdSupport)
-include (MpiSupport)
+include(MpiSupport)
+include(CudaSupport)
 
 # Subdirectories
 add_subdirectory(src)
