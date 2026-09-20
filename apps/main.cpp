@@ -19,6 +19,11 @@
 
 int main(int argc, const char* argv[]) {
 
+    if (argc == 1) {
+        ember::print_help(std::cout);
+        return 0;
+    }
+
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--benchmark-rng") == 0) {
             std::size_t iters = 100'000'000;
