@@ -30,3 +30,6 @@ target_link_libraries(
 
 # Config AVX2 support
 ember_configure_simd(ember_core)
+
+# Config MPI support
+ember_configure_mpi(ember_core)

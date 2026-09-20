@@ -13,9 +13,16 @@
 #include "ember/export.hpp"
 #include "ember/simulation.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <type_traits>
+#include <vector>
+
+#if EMBER_ENABLE_MPI
+#include <mpi.h>
+#endif
 
 namespace ember {
 namespace {
@@ -40,6 +47,19 @@ BatchStatistics run_batch(const SimulationConfig& config) {
 
     // Ensure configuration integrity before allocating any large grid buffers or creating directories.
     validate_config(config);
+
+    int rank = 0;
+    int world_size = 1;
+
+#if EMBER_ENABLE_MPI
+    int mpi_initialized = 0;
+    MPI_Initialized(&mpi_initialized);
+    if (mpi_initialized) {
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    }
+#endif
+
     BatchStatistics batch;
     batch.scenario_results.reserve(config.scenarios);
     const std::filesystem::path output_directory(config.output_directory);
@@ -47,6 +67,10 @@ BatchStatistics run_batch(const SimulationConfig& config) {
     // Process each scenario sequentially. 
     // Each simulation instance generates its own random seed based on its scenario index.
     for (std::size_t scenario_index = 0; scenario_index < config.scenarios; ++scenario_index) {
+        if (scenario_index % static_cast<std::size_t>(world_size) != static_cast<std::size_t>(rank)) {
+            continue; // This scenario is assigned to a different MPI rank; skip it.
+        }
+
         // Initialize a new WildfireSimulation instance for the current scenario and run it to completion.
         WildfireSimulation simulation(config, static_cast<std::uint64_t>(scenario_index));
         auto scenario_statistics = simulation.run();
@@ -68,9 +92,50 @@ BatchStatistics run_batch(const SimulationConfig& config) {
         batch.scenario_results.push_back(scenario_statistics);
     }
 
-    finalize_batch_statistics(batch);
-    if (!config.output_directory.empty()) {
-        export_summary_csv(output_directory / "summary.csv", batch);
+#if EMBER_ENABLE_MPI
+    // Gather all scenario results from other ranks to the master node (Rank 0) for final aggregation and reporting.
+    if (world_size > 1) {
+        using ResultType = decltype(batch.scenario_results)::value_type;
+        static_assert(std::is_trivially_copyable_v<ResultType>,
+                      "ScenarioResult must be trivially copyable for MPI communication.");
+
+        if (rank != 0) {
+            // Secondary nodes send their list of results to Rank 0
+            const std::uint64_t count = batch.scenario_results.size();
+            MPI_Send(&count, 1, MPI_UINT64_T, 0, 0, MPI_COMM_WORLD);
+            if (count > 0) {
+                MPI_Send(batch.scenario_results.data(),
+                         static_cast<int>(count * sizeof(ResultType)),
+                         MPI_BYTE, 0, 1, MPI_COMM_WORLD);
+            }
+        } else {
+            // The master node (Rank 0) receives the results from each of the other nodes
+            for (int src_rank = 1; src_rank < world_size; ++src_rank) {
+                std::uint64_t incoming_count = 0;
+                MPI_Recv(&incoming_count, 1, MPI_UINT64_T, src_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                if (incoming_count > 0) {
+                    const std::size_t prev_size = batch.scenario_results.size();
+                    batch.scenario_results.resize(prev_size + incoming_count);
+                    MPI_Recv(&batch.scenario_results[prev_size],
+                             static_cast<int>(incoming_count * sizeof(ResultType)),
+                             MPI_BYTE, src_rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+            }
+
+            // Sort by scenario ID to ensure a canonical order
+            std::sort(batch.scenario_results.begin(), batch.scenario_results.end(),
+                      [](const auto& a, const auto& b) {
+                          return a.scenario_id < b.scenario_id;
+                      });
+        }
+    }
+#endif
+
+    if (rank == 0) {
+        finalize_batch_statistics(batch);
+        if (!config.output_directory.empty()) {
+            export_summary_csv(output_directory / "summary.csv", batch);
+        }
     }
     return batch;
 }

@@ -53,6 +53,12 @@ option(
   OFF
 )
 
+option(
+  EMBER_ENABLE_MPI
+  "Compile with MPI support for multi-node execution"
+  ON
+)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 # Load external modules
@@ -64,6 +70,7 @@ list(
 include(CompilerWarnings)
 include(Sanitizers)
 include(SimdSupport)
+include (MpiSupport)
 
 # Subdirectories
 add_subdirectory(src)
