@@ -10,7 +10,7 @@ function(ember_configure_cuda TARGET_NAME)
     )
 
     # Headers from CUDA toolkit
-    target_include_directories(${TARGET_NAME} PRIVATE
+    target_include_directories(${TARGET_NAME} SYSTEM PRIVATE
         ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
     )
 
@@ -21,7 +21,7 @@ function(ember_configure_cuda TARGET_NAME)
         $<$<COMPILE_LANGUAGE:CUDA>:
             -O3
             --use_fast_math
-            -Xcompiler -Wall,-Wextra
+            -Xcompiler -Wall,-Wextra,-Wno-old-style-cast,-Wno-pedantic
         >
     )
 
