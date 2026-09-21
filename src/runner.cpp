@@ -27,6 +27,7 @@
 #if EMBER_ENABLE_CUDA
 #include "ember/cuda_simulation.hpp"
 #endif
+#include <iostream>
 
 namespace ember {
 namespace {
@@ -90,14 +91,15 @@ BatchStatistics run_batch(const SimulationConfig& config) {
         ScenarioStatistics scenario_statistics;
 
 #if EMBER_ENABLE_CUDA
-        // ====================================================================
-        // RUTA CUDA (GPU NVIDIA A100): Cómputo masivo de los 500 pasos en VRAM
-        // ====================================================================
+        // 1. OBLIGATORIO: Generar relieve sintético, combustible y encender el foco inicial
+        simulation.initialize();
+
         auto& buffers = simulation.grid();
         std::size_t completed_steps = 0;
         double kernel_time = 0.0;
 
-        run_scenario_cuda(
+        // 2. Ejecutar kernel en GPU y verificar éxito
+        const bool success = run_scenario_cuda(
             config,
             scenario_index,
             buffers,
@@ -105,7 +107,12 @@ BatchStatistics run_batch(const SimulationConfig& config) {
             kernel_time
         );
 
-        // Registro de métricas con el tiempo medido en la GPU
+        if (!success) {
+            std::cerr << "[Rank " << rank << "] Error ejecutando escenario " << scenario_index << " en CUDA.\n";
+            continue;
+        }
+
+        // 3. Registrar métricas de la simulación
         scenario_statistics.scenario_id = scenario_index;
         scenario_statistics.scenario_seed = config.seed + scenario_index;
         scenario_statistics.steps_executed = completed_steps;
@@ -115,7 +122,7 @@ BatchStatistics run_batch(const SimulationConfig& config) {
         scenario_statistics.swap_seconds = 0.0;
         scenario_statistics.cell_updates = completed_steps * config.width * config.height;
 
-        // Conteo de celdas quemadas tras la sincronización del buffer a memoria host
+        // Conteo de celdas quemadas
         const auto view = buffers.current_view();
         std::size_t burned_count = 0;
         const std::size_t total_cells = config.width * config.height;
@@ -129,9 +136,6 @@ BatchStatistics run_batch(const SimulationConfig& config) {
             (static_cast<double>(burned_count) / static_cast<double>(total_cells)) * 100.0;
 
 #else
-        // ====================================================================
-        // RUTA CPU ESTÁNDAR (AVX2 / Escalar)
-        // ====================================================================
         scenario_statistics = simulation.run();
 #endif
 

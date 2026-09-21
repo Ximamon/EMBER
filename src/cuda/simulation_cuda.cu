@@ -65,8 +65,8 @@ namespace ember {
         const float* __restrict__ fuel_in,
         float* __restrict__ fuel_out,
         const float* __restrict__ elevation,
-        const uint8_t* __restrict__ state_in,
-        uint8_t* __restrict__ state_out
+        const CellState* __restrict__ state_in,
+        CellState* __restrict__ state_out
     ) {
         // Cells to GPUs Threads
         const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -79,7 +79,7 @@ namespace ember {
 
         // Cells without fuel or already burned
         if (current_state == CellState::NonCombustible || current_state == CellState::Burned) {
-            state_out[idx] = static_cast<uint8_t>(current_state);
+            state_out[idx] = current_state;
             fuel_out[idx] = fuel_in[idx];
             return;
         }
@@ -89,9 +89,7 @@ namespace ember {
             const float remaining_fuel = fuel_in[idx] - burn_rate;
             const float clamped_fuel = remaining_fuel > 0.0f ? remaining_fuel : 0.0f;
             fuel_out[idx] = clamped_fuel;
-            state_out[idx] = static_cast<uint8_t>(
-                clamped_fuel <= 0.0f ? CellState::Burned : CellState::Burning
-            );
+            state_out[idx] = clamped_fuel <= 0.0f ? CellState::Burned : CellState::Burning;
             return;
         }
 
@@ -124,7 +122,7 @@ namespace ember {
 
         // Shortpath: if no neighbour is burning, cell stays unburned
         if (probability_not_ignited >= 1.0) {
-            state_out[idx] = static_cast<uint8_t>(CellState::Unburned);
+            state_out[idx] = CellState::Unburned;
             return;
         }
 
@@ -137,9 +135,7 @@ namespace ember {
             static_cast<uint64_t>(idx)
         ));
         
-        state_out[idx] = static_cast<uint8_t>(
-            draw < ignition_probability ? CellState::Burning : CellState::Unburned
-        );
+        state_out[idx] = draw < ignition_probability ? CellState::Burning : CellState::Unburned;
     }
 
 
@@ -173,12 +169,13 @@ namespace ember {
         const int height = static_cast<int>(config.height);
         const std::size_t num_cells = config.width * config.height;
 
-        const std::size_t bytes_state = num_cells * sizeof(uint8_t);
+        // Calculate the size of the memory blocks needed for each data type
+        const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
         // Pointers to device memory
-        uint8_t *d_state_curr = nullptr;
-        uint8_t *d_state_next = nullptr;
+        CellState *d_state_curr = nullptr;
+        CellState *d_state_next = nullptr;
         float *d_fuel_curr = nullptr;
         float *d_fuel_next = nullptr;
         float *d_elevation = nullptr;
