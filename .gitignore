@@ -10,3 +10,10 @@ __pycache__/
 .vscode
 *.err
 *.out
+# National source rasters and local GIS environments; the small prepared crop is tracked.
+/data/raw/
+*.tif
+*.tiff
+.venv/
+*.asc.tmp
+*.aux.xml
