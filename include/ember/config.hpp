@@ -13,9 +13,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace ember {
+struct TerrainData;
 
 /**
  * @class IgnitionPoint
@@ -54,6 +56,10 @@ enum class ExportFormat {
  * The fourth group includes ignition points and output settings for exporting simulation data.
  */
 struct SimulationConfig {
+    std::string terrain_path;
+    std::shared_ptr<const TerrainData> terrain;
+    bool width_explicit{false}, height_explicit{false};
+    float terrain_fuel{1.0F}, terrain_moisture{0.2F};
     /// @brief Width of the simulation grid. Must be greater than zero.
     std::size_t width{512};
     /// @brief Height of the simulation grid. Must be greater than zero.

@@ -1,7 +1,7 @@
 option(
     EMBER_ENABLE_MPI 
     "Enable MPI support for multi-node execution" 
-    ON
+    OFF
 )
 
 function(ember_configure_mpi TARGET_NAME)

@@ -54,6 +54,9 @@ struct ScenarioStatistics {
 
     /// @brief Percentage of the grid that burned during the simulation.
     double burned_percent{};
+    std::size_t valid_cells{}, nodata_cells{}, initially_combustible_cells{};
+    double burned_hectares{-1.0}; // unavailable for synthetic grids
+    double combustible_burned_percent{};
     /// @brief Initialization time in seconds for the simulation.
     double initialization_seconds{};
     /// @brief Simulation time in seconds for the simulation.
@@ -76,6 +79,8 @@ struct ScenarioStatistics {
  * @brief Structure containing aggregated statistics for a batch of simulation scenarios.
  */
 struct BatchStatistics {
+    std::size_t width{}, height{};
+    double terrain_load_seconds{};
     /// @brief Vector containing statistics for each individual scenario in the batch.
     std::vector<ScenarioStatistics> scenario_results;
     /// @brief Total number of cell state updates across all scenarios.

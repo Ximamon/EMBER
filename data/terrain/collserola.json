@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "doi": "10.5281/zenodo.18788338",
+  "source": "https://zenodo.org/api/records/18788338/files/ESP_4326_ZAFM.tif/content",
+  "source_file": "ESP_4326_ZAFM.tif",
+  "source_details": {
+    "width": 269876,
+    "height": 193849,
+    "crs": "EPSG:4326",
+    "window": [
+      242764,
+      27816,
+      748,
+      564
+    ]
+  },
+  "centre_lon_lat": [
+    2.1,
+    41.45
+  ],
+  "epsg": 32631,
+  "bounds": [
+    422265.37034589704,
+    4586544.143939698,
+    427385.37034589704,
+    4591664.143939698
+  ],
+  "transform": [
+    10.0,
+    0.0,
+    422265.37034589704,
+    0.0,
+    -10.0,
+    4591664.143939698
+  ],
+  "width": 512,
+  "height": 512,
+  "cell_size_m": 10.0,
+  "resampling": "nearest",
+  "nodata": 0,
+  "classes": {
+    "91": 9,
+    "93": 164,
+    "98": 29205,
+    "104": 10135,
+    "142": 2140,
+    "145": 18414,
+    "161": 186568,
+    "165": 15509
+  },
+  "valid_cells": 262144,
+  "combustible_cells": 232766,
+  "ascii_sha256": "8e6f15ebedd9b69ae4936d1bb6ec434d006ea963999ab0ad843fe2d494414803",
+  "attribution": "Sánchez et al. (2025), ZAFM Europe v1.0, doi:10.5281/zenodo.18788338. © Paula Sánchez 2025. CC BY 4.0.",
+  "source_attribution": [
+    "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
+    "FirEUrisk Europe fuel map: Aragoneses, García & Chuvieco (2022), doi:10.21950/YABYCN"
+  ],
+  "assumptions": {
+    "fuel": 1.0,
+    "moisture": 0.2,
+    "vegetation": 1.0,
+    "elevation": 0.0
+  },
+  "limitations": [
+    "Fuel categories are mapped estimates, not live measurements.",
+    "Legend and Scott–Burgan descriptions disagree; codes are preserved without physical calibration.",
+    "WorldCover baseline 2021; fuel typology baseline 2015–2020.",
+    "No observed humidity or elevation; simulation steps are not minutes."
+  ],
+  "software": {
+    "rasterio": "1.5.1",
+    "gdal": "3.12.4",
+    "numpy": "2.5.3"
+  }
+}

@@ -12,6 +12,7 @@
 
 #include "ember/export.hpp"
 #include "ember/simulation.hpp"
+#include "ember/terrain.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -48,7 +49,12 @@ std::string scenario_stem(std::uint64_t scenario_id) {
 
 } // namespace
 
-BatchStatistics run_batch(const SimulationConfig& config) {
+BatchStatistics run_batch(const SimulationConfig& input_config) {
+    const auto load_start = std::chrono::steady_clock::now();
+    const auto config = resolve_terrain_config(input_config);
+    const double load_seconds = (!input_config.terrain && config.terrain) ?
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
+
 
     // Ensure configuration integrity before allocating any large grid buffers or creating directories.
     validate_config(config);
@@ -76,6 +82,17 @@ BatchStatistics run_batch(const SimulationConfig& config) {
 #endif
 
     BatchStatistics batch;
+    batch.width = config.width;
+    batch.height = config.height;
+    batch.terrain_load_seconds = load_seconds;
+    if (config.terrain && rank == 0) {
+        std::cout << "Terrain: EPSG:32631, " << config.terrain->cell_size_m << " m cells; load "
+                  << load_seconds << " s\nUniform fuel: " << config.terrain_fuel
+                  << "; moisture: " << config.terrain_moisture << "; flat elevation\n";
+        for (const auto& point : config.ignitions)
+            std::cout << "Ignition: " << point.x << ',' << point.y << '\n';
+        if (!config.output_directory.empty()) export_terrain_run(config);
+    }
     batch.scenario_results.reserve(config.scenarios);
     const std::filesystem::path output_directory(config.output_directory);
 
@@ -145,11 +162,11 @@ BatchStatistics run_batch(const SimulationConfig& config) {
             const auto grid = static_cast<const GridBuffers&>(simulation.grid()).current_view();
 
             if (config.export_format == ExportFormat::Csv || config.export_format == ExportFormat::Both) {
-                export_grid_csv(output_directory / (stem + ".csv"), grid);
+                export_grid_csv(output_directory / (stem + ".csv"), grid, config.terrain.get());
             }
 
             if (config.export_format == ExportFormat::Ppm || config.export_format == ExportFormat::Both) {
-                export_grid_ppm(output_directory / (stem + ".ppm"), grid);
+                export_grid_ppm(output_directory / (stem + ".ppm"), grid, config.terrain.get());
             }
         }
         

@@ -95,7 +95,11 @@ void validate_config(const SimulationConfig& config) {
         config.min_vegetation < 0.0F) {
         throw std::invalid_argument("terrain ranges are outside their supported bounds");
     }
+    if (!in_unit_interval(config.terrain_fuel) || config.terrain_fuel <= 0 ||
+        !in_unit_interval(config.terrain_moisture))
+        throw std::invalid_argument("terrain fuel must be in (0,1], moisture in [0,1]");
     for (const auto& point : config.ignitions) {
+        if (!config.terrain_path.empty() && !config.terrain) continue; // bounds resolved on loading
         if (point.x >= config.width || point.y >= config.height) {
             throw std::invalid_argument("ignition point is outside the grid");
         }

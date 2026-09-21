@@ -24,8 +24,8 @@
 int main(int argc, const char* argv[]) {
 
     int rank = 0;
-    int world_size = 1;
 #if EMBER_ENABLE_MPI
+    int world_size = 1;
     MPI_Init(nullptr, nullptr);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
@@ -79,7 +79,7 @@ int main(int argc, const char* argv[]) {
 #if EMBER_ENABLE_MPI
                       << "MPI Nodes: " << world_size << '\n'
 #endif
-                      << "Grid: " << options.config.width << " x " << options.config.height << '\n'
+                      << "Grid: " << statistics.width << " x " << statistics.height << '\n'
                       << "Maximum steps: " << options.config.max_steps << '\n'
                       << "Scenarios: " << options.config.scenarios << '\n'
                       << "Seed: " << options.config.seed << '\n'
@@ -135,6 +135,14 @@ int main(int argc, const char* argv[]) {
                           << world_size << ".00x (" << std::setprecision(1) << (speedup / world_size * 100.0) << " % efficiency)\n";
             }
 #endif
+
+            if (!options.config.terrain_path.empty() || options.config.terrain) {
+                for (const auto& scenario : statistics.scenario_results) {
+                    std::cout << "Scenario " << scenario.scenario_id << ": " << scenario.burned_hectares
+                              << " ha; " << scenario.combustible_burned_percent
+                              << " % of initially combustible terrain; " << scenario.nodata_cells << " NoData cells\n";
+                }
+            }
 
             if (!options.config.output_directory.empty()) {
                 std::cout << "Summary: " << options.config.output_directory << "/summary.csv\n";

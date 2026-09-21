@@ -11,6 +11,7 @@
 #pragma once
 
 #include "ember/grid.hpp"
+#include "ember/terrain.hpp"
 #include "ember/statistics.hpp"
 
 #include <filesystem>
@@ -23,20 +24,22 @@ namespace ember {
  * @param path The path to the output CSV file.
  * @param grid The grid data to export.
  */
-void export_grid_csv(const std::filesystem::path& path, ConstGridView grid);
+void export_grid_csv(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
 /**
  * @brief Exports the grid data to a PPM file.
  * 
  * @param path The path to the output PPM file.
  * @param grid The grid data to export.
  */
-void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid);
+void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
 /**
  * @brief Exports the batch statistics to a CSV file.
  * 
  * @param path The path to the output CSV file.
  * @param statistics The batch statistics to export.
  */
+void export_terrain_run(const SimulationConfig& config);
+
 void export_summary_csv(const std::filesystem::path& path, const BatchStatistics& statistics);
 
 } // namespace ember

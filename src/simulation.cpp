@@ -11,6 +11,7 @@
 #include "ember/simulation.hpp"
 
 #include "ember/random.hpp"
+#include "ember/terrain.hpp"
 
 #if AVX2
 #include "avx2_support.hpp"
@@ -50,7 +51,7 @@ std::uint64_t as_u64(std::size_t value) {
 } // namespace
 
 WildfireSimulation::WildfireSimulation(SimulationConfig config, std::uint64_t scenario_id)
-    : config_(std::move(config)),
+    : config_(resolve_terrain_config(std::move(config))),
       scenario_id_(scenario_id),
       scenario_seed_(ember::scenario_seed(config_.seed, scenario_id)) {
     validate_config(config_);
@@ -66,10 +67,16 @@ void WildfireSimulation::initialize() {
     max_step_seconds_ = 0.0;
 
     grid_ = GridBuffers(config_.width, config_.height);
+    if (config_.terrain) initialize_terrain();
+    else initialize_synthetic_terrain();
+    apply_ignitions();
+    initialized_ = true;
+}
+
+void WildfireSimulation::initialize_synthetic_terrain() {
     auto current = grid_.current_view();
     auto next = grid_.next_view();
     const auto count = grid_.cell_count();
-
     for (std::size_t index = 0; index < count; ++index) {
         // We use keyed hashing to ensure that fuel, moisture, and vegetation 
         // get independent pseudo-random streams, even though they share the same seed and index.
@@ -89,7 +96,25 @@ void WildfireSimulation::initialize() {
         current.state[index] = non_combustible ? CellState::NonCombustible : CellState::Unburned;
         next.state[index] = current.state[index];
     }
+}
 
+void WildfireSimulation::initialize_terrain() {
+    const auto& terrain = *config_.terrain;
+    auto current = grid_.current_view();
+    auto next = grid_.next_view();
+    for (std::size_t i = 0; i < terrain.codes.size(); ++i) {
+        const bool burns = combustible_code(terrain.codes[i]);
+        current.state[i] = next.state[i] = burns ? CellState::Unburned : CellState::NonCombustible;
+        current.fuel[i] = next.fuel[i] = burns ? config_.terrain_fuel : 0.0F;
+        current.moisture[i] = config_.terrain_moisture;
+        current.vegetation[i] = 1.0F;
+        current.elevation[i] = 0.0F;
+    }
+}
+
+void WildfireSimulation::apply_ignitions() {
+    auto current = grid_.current_view();
+    auto next = grid_.next_view();
     std::vector<IgnitionPoint> default_ignition;
     const std::vector<IgnitionPoint>* ignitions = &config_.ignitions;
     if (ignitions->empty()) {
@@ -100,11 +125,10 @@ void WildfireSimulation::initialize() {
         const auto index = point.y * config_.width + point.x;
         current.state[index] = CellState::Burning;
         next.state[index] = CellState::Burning;
-        const float ignition_fuel = std::max(current.fuel[index], config_.burn_rate);
+        const float ignition_fuel = config_.terrain ? current.fuel[index] : std::max(current.fuel[index], config_.burn_rate);
         current.fuel[index] = ignition_fuel;
         next.fuel[index] = ignition_fuel;
     }
-    initialized_ = true;
 }
 
 float WildfireSimulation::neighbor_ignition_probability(
@@ -326,6 +350,22 @@ ScenarioStatistics WildfireSimulation::run() {
             ++statistics.non_combustible_cells;
         }
     }
+
+    if (config_.terrain) {
+        const auto& terrain = *config_.terrain;
+        statistics.valid_cells = terrain.valid_cells;
+        statistics.nodata_cells = count - terrain.valid_cells;
+        statistics.non_combustible_cells -= statistics.nodata_cells;
+        statistics.initially_combustible_cells = terrain.combustible_cells;
+        statistics.burned_hectares = static_cast<double>(statistics.burned_cells) *
+            terrain.cell_size_m * terrain.cell_size_m / 10000.0;
+    } else {
+        statistics.valid_cells = count;
+        statistics.initially_combustible_cells = count - statistics.non_combustible_cells;
+    }
+    statistics.combustible_burned_percent = statistics.initially_combustible_cells ?
+        100.0 * static_cast<double>(statistics.burned_cells) /
+        static_cast<double>(statistics.initially_combustible_cells) : 0.0;
 
     // Calculate performance metrics (throughput and core time) for benchmarking.
     statistics.cell_updates = static_cast<std::uint64_t>(count) *

@@ -56,13 +56,13 @@ option(
 option(
   EMBER_ENABLE_MPI
   "Compile with MPI support for multi-node execution"
-  ON
+  OFF
 )
 
 option(
   EMBER_ENABLE_CUDA
   "Compile with CUDA support for GPUs"
-  ON
+  OFF
 )
 
 if(EMBER_ENABLE_CUDA)

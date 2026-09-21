@@ -103,6 +103,10 @@ private:
     double min_step_seconds_{0.0};
     double max_step_seconds_{0.0};
 
+    void initialize_terrain();
+    void initialize_synthetic_terrain();
+    void apply_ignitions();
+
     std::size_t step_scalar(std::size_t step_index);
     std::size_t step_cell(
         const ConstGridView& current,

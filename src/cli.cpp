@@ -133,9 +133,18 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
         if (option == "--help" || option == "-h") {
             options.show_help = true;
         } else if (option == "--width") {
+            options.config.width_explicit = true;
             options.config.width = parse_size(require_value(index, argc, argv, option), option);
         } else if (option == "--height") {
+            options.config.height_explicit = true;
             options.config.height = parse_size(require_value(index, argc, argv, option), option);
+        } else if (option == "--terrain") {
+            options.config.terrain_path = require_value(index, argc, argv, option);
+            if (options.config.terrain_path.empty()) throw std::invalid_argument("empty terrain path");
+        } else if (option == "--terrain-fuel") {
+            options.config.terrain_fuel = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--terrain-moisture") {
+            options.config.terrain_moisture = parse_float(require_value(index, argc, argv, option), option);
         } else if (option == "--steps") {
             options.config.max_steps = parse_size(require_value(index, argc, argv, option), option);
         } else if (option == "--scenarios") {
@@ -173,6 +182,9 @@ void print_help(std::ostream& output) {
         "Options:\n"
         "  --width N                 Grid width (default: 512)\n"
         "  --height N                Grid height (default: 512)\n"
+        "  --terrain FILE            ZAFM ASCII grid with .prj (EPSG:32631); CPU only\n"
+        "  --terrain-fuel X          Uniform fuel in (0,1] (default: 1)\n"
+        "  --terrain-moisture X      Uniform moisture in [0,1] (default: 0.2)\n"
         "  --steps N                 Maximum steps (default: 500)\n"
         "  --scenarios N             Independent scenarios (default: 1)\n"
         "  --seed N                  Global seed (default: 42)\n"

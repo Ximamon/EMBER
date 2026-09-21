@@ -1,6 +1,6 @@
 # EMBER
 
-EMBER is a small, deterministic CPU baseline for experimenting with stochastic wildfire propagation and future CPU/GPU optimization. It is an educational simulator, not an operational fire prediction system.
+EMBER is a reproducible stochastic wildfire simulator with a CPU baseline, experimental AVX2/MPI/CUDA paths, and an offline real-terrain demo. It is an educational simulator, not an operational fire prediction system.
 
 The model uses a rectangular Structure-of-Arrays grid, Moore neighborhoods, double buffering and stateless random values derived from `(seed, scenario, step, cell)`. A run is reproducible for the same configuration and build environment, independent of scenario batching or cell traversal order.
 
@@ -10,7 +10,7 @@ The model uses a rectangular Structure-of-Arrays grid, Moore neighborhoods, doub
 - A C++17 compiler: GCC, Clang or MSVC.
 - Python 3 only if using the optional benchmark automation script.
 
-No third-party C++ libraries or package manager are required.
+The default CPU build requires no third-party C++ libraries. MPI and CUDA are opt-in via `EMBER_ENABLE_MPI` and `EMBER_ENABLE_CUDA`; enabling them requires their respective toolchains. Real-terrain preparation and PNG rendering additionally require the Python packages in `tools/terrain/requirements.txt`.
 
 ## Build and test
 
@@ -30,7 +30,7 @@ cmake --build build-sanitize
 ctest --test-dir build-sanitize --output-on-failure
 ```
 
-The `avx` branch also provides an optional AVX2 path. Build it in a separate
+An optional AVX2 path is available in this checkout. Build it in a separate
 directory so the scalar baseline remains available for comparisons:
 
 ```sh
@@ -43,7 +43,22 @@ The executable checks AVX2 support at runtime and falls back to the scalar
 implementation when the CPU or operating system does not expose it. The AVX2
 path does not enable `fast-math`.
 
-## Run
+## Real terrain: Collserola
+
+A prepared ZAFM crop (512 × 512 cells at 10 m) is included for offline CPU runs:
+
+```sh
+./build/ember --terrain data/terrain/collserola.asc --steps 500 --scenarios 2 \
+  --seed 42 --output out/collserola --export csv
+```
+
+See [the complete three-command workflow](docs/real-terrain.md) for preparation,
+visualization, assumptions, tests and dataset attribution. This first version uses
+real fuel categories and a real combustible mask, with uniform fuel/moisture and
+flat elevation. It is not calibrated to physical fire duration. CUDA currently uses
+a different model and rejects real-terrain input.
+
+## Run synthetic terrain
 
 ```sh
 ./build/ember \
@@ -83,7 +98,7 @@ python scripts/run_benchmarks.py --executable ./build/ember --output benchmarks/
 
 The script performs one warm-up and five measured repetitions for each defined workload. It never enables grid export. See [benchmarks/README.md](benchmarks/README.md) for the matrix and reporting rules.
 
-On the `avx` branch, use the same command with the AVX2 executable and write
+For AVX2, use the same command with the AVX2 executable and write
 to `benchmarks/benchmark_results_avx.csv` so the raw repetitions remain
 separate from the scalar baseline.
 
@@ -101,4 +116,5 @@ open docs/html/index.html
 
 ## License
 
-EMBER is released under the [MIT License](LICENSE).
+EMBER source code is released under the [MIT License](LICENSE). The bundled derived
+ZAFM crop is CC BY 4.0; see [data attribution](docs/real-terrain.md#attribution).

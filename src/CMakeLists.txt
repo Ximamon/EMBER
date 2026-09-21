@@ -4,6 +4,7 @@ add_library(
     config.cpp
     export.cpp
     grid.cpp
+    terrain.cpp
     runner.cpp
     simulation.cpp
     statistics.cpp
