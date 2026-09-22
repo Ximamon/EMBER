@@ -1,8 +1,8 @@
 ==================================================
 CUDA KERNEL TEST ON NVIDIA A100
-Job ID: 3818
+Job ID: 3882
 Node: gpu002
-Date: Mon Sep 21 05:34:03 AM PDT 2026
+Date: Tue Sep 22 06:07:37 AM PDT 2026
 Visible GPU devices according to Slurm:
 index, name, memory.total [MiB], driver_version
 0, NVIDIA A100-SXM4-80GB, 81920 MiB, 580.95.05
@@ -15,15 +15,15 @@ Maximum steps: 500
 Scenarios: 20
 Seed: 42
 Initialization time: 0.000000 s
-Simulation time: 0.174217 s
-  ├── Stencil compute: 0.174217 s (100.00 %)
+Simulation time: 0.193800 s
+  ├── Stencil compute: 0.193800 s (100.00 %)
   └── Buffer swap:     0.00 s (0.00 %)
 Execution time: 0.000000 s
 Mean scenario time: 0.000000 s
-Mean step time: 0.017 ms
+Mean step time: 0.019 ms
 Cell updates: 10485760000
-Throughput: 60187817726 cell updates/s
-Mean burned area: 85.330 %
+Throughput: 54106006392 cell updates/s
+Mean burned area: 37.876 %
 Completed scenarios: 20
 Extinguished scenarios: 0
 Max-step scenarios: 20
