@@ -25,8 +25,8 @@ mkdir -p results/results_base_server
 
 # Ejecutar el binario con ruta absoluta o relativa a la raíz
 ./build/ember \
-    --width 1024 \
-    --height 1024 \
+    --width 5120 \
+    --height 5120 \
     --steps 500 \
     --scenarios 5 \
     --base-spread 0.80 \

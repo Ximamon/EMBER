@@ -13,6 +13,7 @@
 module load gcc/14.2.0
 module load openmpi/gcc/64/5.0.7
 module load cuda12.8/toolkit/12.8.1
+module load Nsight-Systems/2026.2.1
 
 echo "=================================================="
 echo "CUDA KERNEL TEST ON NVIDIA A100"
@@ -24,9 +25,9 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/results_cuda/
+mkdir -p results/results_cuda_nsys/
 
-nsys profile --trace=nvtx,cuda --force-overwrite=true -o results/results_cuda/ember_cuda_profile \
+nsys profile --trace=nvtx,cuda --force-overwrite=true -o results/results_cuda_nsys/ember_cuda_profile \
 ./build/ember \
     --width 5120 \
     --height 5120 \
@@ -37,7 +38,7 @@ nsys profile --trace=nvtx,cuda --force-overwrite=true -o results/results_cuda/em
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/results_cuda/ \
+    --output results/results_cuda_nsys/ \
 
 echo "=================================================="
 echo "Simulation completed successfully on NVIDIA A100 GPU."

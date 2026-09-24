@@ -27,8 +27,8 @@ echo "--------------------------------------------------"
 
 # 2. Full simulation with specified parameters
 ./build/ember \
-    --width 1024 \
-    --height 1024 \
+    --width 5120 \
+    --height 5120 \
     --steps 500 \
     --scenarios 20 \
     --seed 42 \
