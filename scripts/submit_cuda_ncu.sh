@@ -29,9 +29,9 @@ mkdir -p results/results_cuda_ncu/
 
 ncu --import-source=yes --clock-control=none -k step_stencil_kernel -c 5 -o results/results_cuda_ncu/ember_cuda_profile --set=full -f \
 ./build/ember \
-    --width 5120 \
-    --height 5120 \
-    --steps 500 \
+    --width 1024 \
+    --height 1024 \
+    --steps 1024 \
     --scenarios 20 \
     --seed 42 \
     --base-spread 0.80 \

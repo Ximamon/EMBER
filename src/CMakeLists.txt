@@ -37,3 +37,6 @@ ember_configure_mpi(ember_core)
 
 # Config CUDA support
 ember_configure_cuda(ember_core)
+
+# Config NVTX profiling ranges
+ember_configure_nvtx(ember_core)

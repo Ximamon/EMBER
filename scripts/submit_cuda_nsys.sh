@@ -27,18 +27,24 @@ echo "=================================================="
 cd ~/EMBER
 mkdir -p results/results_cuda_nsys/
 
-nsys profile --trace=nvtx,cuda --force-overwrite=true -o results/results_cuda_nsys/ember_cuda_profile \
+nsys profile \
+    --trace=cuda,nvtx,osrt \
+    --sample=process-tree \
+    --backtrace=dwarf \
+    --cuda-memory-usage=true \
+    --force-overwrite=true \
+    -o results/results_cuda_nsys/ember_cuda_profile \
 ./build/ember \
-    --width 5120 \
-    --height 5120 \
-    --steps 500 \
+    --width 1024 \
+    --height 1024 \
+    --steps 1024 \
     --scenarios 20 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/results_cuda_nsys/ \
+    --output results/results_cuda_nsys/
 
 echo "=================================================="
 echo "Simulation completed successfully on NVIDIA A100 GPU."

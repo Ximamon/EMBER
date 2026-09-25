@@ -26,11 +26,10 @@ echo "=================================================="
 cd ~/EMBER
 mkdir -p results/results_cuda/
 
-nsys profile --trace=nvtx,cuda --force-overwrite=true -o results/results_cuda/ember_cuda_profile \
 ./build/ember \
-    --width 5120 \
-    --height 5120 \
-    --steps 500 \
+    --width 1024 \
+    --height 1024 \
+    --steps 1024 \
     --scenarios 20 \
     --seed 42 \
     --base-spread 0.80 \

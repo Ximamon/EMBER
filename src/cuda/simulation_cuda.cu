@@ -1,5 +1,6 @@
 #include "ember/cuda_simulation.hpp"
 #include "ember/random.hpp"
+#include "ember/nvtx.hpp"
 
 #include <cuda_runtime.h>
 #include <iostream>
@@ -232,6 +233,7 @@ namespace ember {
         std::size_t& completed_steps,
         double& kernel_time_seconds)
     {
+        const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
         const int width = static_cast<int>(config.width);
         const int height = static_cast<int>(config.height);
         const std::size_t num_cells = config.width * config.height;
@@ -248,13 +250,16 @@ namespace ember {
         float *d_moisture = nullptr;
         float *d_vegetation = nullptr;
 
-        CUDA_CHECK(cudaMalloc(&d_state_curr, bytes_state));
-        CUDA_CHECK(cudaMalloc(&d_state_next, bytes_state));
-        CUDA_CHECK(cudaMalloc(&d_fuel_curr, bytes_float));
-        CUDA_CHECK(cudaMalloc(&d_fuel_next, bytes_float));
-        CUDA_CHECK(cudaMalloc(&d_elevation, bytes_float));
-        CUDA_CHECK(cudaMalloc(&d_moisture, bytes_float));
-        CUDA_CHECK(cudaMalloc(&d_vegetation, bytes_float));
+        {
+            const nvtx::ScopedRange allocation_range("cuda.allocate", nvtx::purple, 2U);
+            CUDA_CHECK(cudaMalloc(&d_state_curr, bytes_state));
+            CUDA_CHECK(cudaMalloc(&d_state_next, bytes_state));
+            CUDA_CHECK(cudaMalloc(&d_fuel_curr, bytes_float));
+            CUDA_CHECK(cudaMalloc(&d_fuel_next, bytes_float));
+            CUDA_CHECK(cudaMalloc(&d_elevation, bytes_float));
+            CUDA_CHECK(cudaMalloc(&d_moisture, bytes_float));
+            CUDA_CHECK(cudaMalloc(&d_vegetation, bytes_float));
+        }
 
         auto view = buffers.current_view();
         if (view.state == nullptr || view.fuel == nullptr || view.elevation == nullptr ||
@@ -264,11 +269,15 @@ namespace ember {
         }
 
         // Transferencia inicial Host -> Device (única por escenario)
-        CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_moisture, view.moisture, bytes_float, cudaMemcpyHostToDevice));
-        CUDA_CHECK(cudaMemcpy(d_vegetation, view.vegetation, bytes_float, cudaMemcpyHostToDevice));
+
+        {
+            const nvtx::ScopedRange upload_range("cuda.host_to_device", nvtx::teal, 2U);
+            CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(d_fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(d_elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(d_moisture, view.moisture, bytes_float, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(d_vegetation, view.vegetation, bytes_float, cudaMemcpyHostToDevice));
+        }
 
         // Precalcular vectores directores de viento para evitar funciones trigonométricas en la GPU
         constexpr float pi = 3.14159265358979323846f;
@@ -286,49 +295,62 @@ namespace ember {
 
         const auto t_start = std::chrono::steady_clock::now();
 
-        for (std::size_t step = 0; step < config.max_steps; ++step) {
-            step_stencil_kernel<<<grid_dim, block_dim>>>(
-                width,
-                height,
-                scenario_seed,
-                static_cast<uint64_t>(step),
-                static_cast<float>(config.base_spread),
-                static_cast<float>(config.burn_rate),
-                static_cast<float>(config.wind_strength),
-                wind_x,
-                wind_y,
-                static_cast<float>(config.slope_scale),
-                d_fuel_curr,
-                d_fuel_next,
-                d_elevation,
-                d_moisture,
-                d_vegetation,
-                d_state_curr,
-                d_state_next
-            );
+        {
+            const nvtx::ScopedRange timesteps_range("cuda.timesteps", nvtx::orange, 2U);
+            for (std::size_t step = 0; step < config.max_steps; ++step) {
+                step_stencil_kernel<<<grid_dim, block_dim>>>(
+                    width,
+                    height,
+                    scenario_seed,
+                    static_cast<uint64_t>(step),
+                    static_cast<float>(config.base_spread),
+                    static_cast<float>(config.burn_rate),
+                    static_cast<float>(config.wind_strength),
+                    wind_x,
+                    wind_y,
+                    static_cast<float>(config.slope_scale),
+                    d_fuel_curr,
+                    d_fuel_next,
+                    d_elevation,
+                    d_moisture,
+                    d_vegetation,
+                    d_state_curr,
+                    d_state_next
+                );
 
-            // Rotación de doble buffer en registros VRAM (coste 0.00 ms)
-            std::swap(d_state_curr, d_state_next);
-            std::swap(d_fuel_curr, d_fuel_next);
+                // Rotación de doble buffer en registros VRAM (coste 0.00 ms)
+                std::swap(d_state_curr, d_state_next);
+                std::swap(d_fuel_curr, d_fuel_next);
+            }
+
+            // Maintain synchronization within `cuda.timesteps` to measure
+            // actual asynchronous execution on the GPU, not just kernel invocation
+            const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
+            CUDA_CHECK(cudaDeviceSynchronize());
         }
 
-        CUDA_CHECK(cudaDeviceSynchronize());
         const auto t_end = std::chrono::steady_clock::now();
         kernel_time_seconds = std::chrono::duration<double>(t_end - t_start).count();
         completed_steps = config.max_steps;
 
         // Recuperar el resultado final de Device a Host
-        CUDA_CHECK(cudaMemcpy(const_cast<CellState*>(view.state), d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
-        CUDA_CHECK(cudaMemcpy(const_cast<float*>(view.fuel), d_fuel_curr, bytes_float, cudaMemcpyDeviceToHost));
+        {
+            const nvtx::ScopedRange download_range("cuda.device_to_host", nvtx::teal, 2U);
+            CUDA_CHECK(cudaMemcpy(view.state, d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(view.fuel, d_fuel_curr, bytes_float, cudaMemcpyDeviceToHost));
+        }
 
         // Liberar memoria VRAM
-        cudaFree(d_state_curr);
-        cudaFree(d_state_next);
-        cudaFree(d_fuel_curr);
-        cudaFree(d_fuel_next);
-        cudaFree(d_elevation);
-        cudaFree(d_moisture);
-        cudaFree(d_vegetation);
+        {
+            const nvtx::ScopedRange free_range("cuda.free", nvtx::purple, 2U);
+            cudaFree(d_state_curr);
+            cudaFree(d_state_next);
+            cudaFree(d_fuel_curr);
+            cudaFree(d_fuel_next);
+            cudaFree(d_elevation);
+            cudaFree(d_moisture);
+            cudaFree(d_vegetation);
+        }
 
         return true;
     }

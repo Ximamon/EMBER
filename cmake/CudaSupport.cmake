@@ -1,6 +1,10 @@
 function(ember_configure_cuda TARGET_NAME)
     if(NOT EMBER_ENABLE_CUDA)
         target_compile_definitions(${TARGET_NAME} PUBLIC EMBER_ENABLE_CUDA=0)
+        message(
+            STATUS 
+            "CUDA Disabled: Compiling CPU-only executable"
+        )
         return()
     endif()
 

@@ -47,6 +47,12 @@ option(
   OFF
 )
 
+if (AVX2)
+  message(STATUS "AVX2 support enabled")
+else()
+  message(STATUS "AVX2 support disabled")
+endif()
+
 option(
   EMBER_ENABLE_SANITIZERS
   "Enable AddressSanitizer and UndefinedBehaviorSanitizer"
@@ -93,6 +99,7 @@ include(Sanitizers)
 include(SimdSupport)
 include(MpiSupport)
 include(CudaSupport)
+include(NvtxSupport)
 
 # Subdirectories
 add_subdirectory(src)
