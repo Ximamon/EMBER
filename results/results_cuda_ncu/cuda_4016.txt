@@ -1,0 +1,41 @@
+==================================================
+CUDA KERNEL TEST ON NVIDIA A100
+Job ID: 4016
+Node: gpu002
+Date: Thu Sep 24 11:23:25 PM PDT 2026
+Visible GPU devices according to Slurm:
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A100-SXM4-80GB, 81920 MiB, 580.95.05
+==================================================
+==WARNING== Note: Running with unmodified GPU clocks. If not controlled otherwise, profiling results may be inconsistent.
+==PROF== Connected to process 2082066 (/home/mar-mrjxj/EMBER/build/ember)
+==PROF== Profiling "step_stencil_kernel": 0%....50%....100% - 52 passes
+==PROF== Profiling "step_stencil_kernel": 0%....50%....100% - 51 passes
+==PROF== Profiling "step_stencil_kernel": 0%....50%....100% - 52 passes
+==PROF== Profiling "step_stencil_kernel": 0%....50%....100% - 52 passes
+==PROF== Profiling "step_stencil_kernel": 0%....50%....100% - 52 passes
+[CUDA] Device: NVIDIA A100-SXM4-80GB | Compute Capability: 8.0 | VRAM Total: 79 GB
+EMBER
+Grid: 1024 x 1024
+Maximum steps: 1024
+Scenarios: 20
+Seed: 42
+Initialization time: 0.000000 s
+Simulation time: 22.047664 s
+  ├── Stencil compute: 22.047664 s (100.00 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 0.000000 s
+Mean scenario time: 0.000000 s
+Mean step time: 1.077 ms
+Cell updates: 21474836480
+Throughput: 974018690 cell updates/s
+Mean burned area: 84.130 %
+Completed scenarios: 20
+Extinguished scenarios: 0
+Max-step scenarios: 20
+Summary: results/results_cuda_ncu//summary.csv
+==PROF== Disconnected from process 2082066
+==WARNING== No source files were imported. Check that the target application was compiled with -lineinfo.
+==PROF== Report: /home/mar-mrjxj/EMBER/results/results_cuda_ncu/ember_cuda_profile.ncu-rep
+==================================================
+Simulation completed successfully on NVIDIA A100 GPU.
