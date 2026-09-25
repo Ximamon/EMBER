@@ -1,0 +1,33 @@
+==================================================
+Work ID: 4014
+Node: gpu002
+Date: Thu Sep 24 11:03:57 PM PDT 2026
+==================================================
+--------------------------------------------------
+EMBER
+Grid: 1024 x 1024
+Maximum steps: 1024
+Scenarios: 20
+Seed: 42
+Initialization time: 0.653896 s
+Simulation time: 84.503098 s
+  ├── Stencil compute: 84.476792 s (99.97 %)
+  └── Buffer swap:     0.02 s (0.03 %)
+Execution time: 85.156994 s
+Mean scenario time: 4.257850 s
+Mean step time: 4.126 ms
+Cell updates: 21474836480
+Throughput: 254130761 cell updates/s
+Mean burned area: 84.189 %
+Completed scenarios: 20
+Extinguished scenarios: 0
+Max-step scenarios: 20
+Summary: results/results_curiosity//summary.csv
+Collecting data...
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-0cdd.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] ember_cpu_profile.nsys-rep[1/1] [0%                          ] ember_cpu_profile.nsys-rep[1/1] [5%                          ] ember_cpu_profile.nsys-rep[1/1] [8%                          ] ember_cpu_profile.nsys-rep[1/1] [====25%                     ] ember_cpu_profile.nsys-rep[1/1] [====27%                     ] ember_cpu_profile.nsys-rep[1/1] [====28%                     ] ember_cpu_profile.nsys-rep[1/1] [=====29%                    ] ember_cpu_profile.nsys-rep[1/1] [=====32%                    ] ember_cpu_profile.nsys-rep[1/1] [======33%                   ] ember_cpu_profile.nsys-rep[1/1] [======34%                   ] ember_cpu_profile.nsys-rep[1/1] [=======38%                  ] ember_cpu_profile.nsys-rep[1/1] [=======39%                  ] ember_cpu_profile.nsys-rep[1/1] [========40%                 ] ember_cpu_profile.nsys-rep[1/1] [========42%                 ] ember_cpu_profile.nsys-rep[1/1] [===========53%              ] ember_cpu_profile.nsys-rep[1/1] [============54%             ] ember_cpu_profile.nsys-rep[1/1] [============56%             ] ember_cpu_profile.nsys-rep[1/1] [============57%             ] ember_cpu_profile.nsys-rep[1/1] [=============58%            ] ember_cpu_profile.nsys-rep[1/1] [=============59%            ] ember_cpu_profile.nsys-rep[1/1] [=============60%            ] ember_cpu_profile.nsys-rep[1/1] [==============61%           ] ember_cpu_profile.nsys-rep[1/1] [==============62%           ] ember_cpu_profile.nsys-rep[1/1] [==============63%           ] ember_cpu_profile.nsys-rep[1/1] [==============64%           ] ember_cpu_profile.nsys-rep[1/1] [===============65%          ] ember_cpu_profile.nsys-rep[1/1] [===============66%          ] ember_cpu_profile.nsys-rep[1/1] [===============67%          ] ember_cpu_profile.nsys-rep[1/1] [================69%         ] ember_cpu_profile.nsys-rep[1/1] [================70%         ] ember_cpu_profile.nsys-rep[1/1] [================71%         ] ember_cpu_profile.nsys-rep[1/1] [=================72%        ] ember_cpu_profile.nsys-rep[1/1] [=================73%        ] ember_cpu_profile.nsys-rep[1/1] [=================74%        ] ember_cpu_profile.nsys-rep[1/1] [==================75%       ] ember_cpu_profile.nsys-rep[1/1] [==================76%       ] ember_cpu_profile.nsys-rep[1/1] [==================77%       ] ember_cpu_profile.nsys-rep[1/1] [==================78%       ] ember_cpu_profile.nsys-rep[1/1] [===================79%      ] ember_cpu_profile.nsys-rep[1/1] [===================80%      ] ember_cpu_profile.nsys-rep[1/1] [===================82%      ] ember_cpu_profile.nsys-rep[1/1] [========================100%] ember_cpu_profile.nsys-rep[1/1] [========================100%] ember_cpu_profile.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/results_curiosity/ember_cpu_profile.nsys-rep
+==================================================
+Execution completed successfully.

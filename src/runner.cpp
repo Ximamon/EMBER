@@ -51,10 +51,16 @@ std::string scenario_stem(std::uint64_t scenario_id) {
 
 BatchStatistics run_batch(const SimulationConfig& input_config) {
     const nvtx::ScopedRange batch_range("batch.run", nvtx::purple, 0U);
-    const auto load_start = std::chrono::steady_clock::now();
-    const auto config = resolve_terrain_config(input_config);
-    const double load_seconds = (!input_config.terrain && config.terrain) ?
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
+
+    SimulationConfig config;
+    double load_seconds = 0.0;
+    {
+        const nvtx::ScopedRange terrain_range("batch.resolve_terrain", nvtx::teal, 1U);
+        const auto load_start = std::chrono::steady_clock::now();
+        config = resolve_terrain_config(input_config);
+        load_seconds = (!input_config.terrain && config.terrain) ?
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
+    }
 
 
     // Ensure configuration integrity before allocating any large grid buffers or creating directories.
@@ -81,6 +87,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 #if EMBER_ENABLE_CUDA
     // Check for CUDA device availability only on the master node (Rank 0) to avoid redundant checks across all MPI ranks.
     if (rank == 0) {
+        const nvtx::ScopedRange cuda_dev_range("cuda.check_device", nvtx::orange, 1U);
         check_cuda_device();
     }
 #endif

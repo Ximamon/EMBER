@@ -6,11 +6,13 @@
 #define EMBER_ENABLE_NVTX 0
 #endif
 
+#if EMBER_ENABLE_NVTX
+#include <nvtx3/nvToolsExt.h>
+#endif
+
 namespace ember::nvtx {
 
 #if EMBER_ENABLE_NVTX
-
-#include <nvtx3/nvToolsExt.h>
 
 // ARGB Color Palette (0xAARRGGBB) for Nsight Systems
 constexpr std::uint32_t green  = 0xFF2ECC71U;
