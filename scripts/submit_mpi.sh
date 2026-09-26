@@ -10,6 +10,7 @@
 
 module load gcc/14.2.0
 module load openmpi/gcc/64/5.0.7
+module load Nsight-Systems/2026.2.1
 
 # Disable broken direct connectivity of Slurm PMIx
 export SLURM_PMIX_DIRECT_CONN=false
@@ -33,10 +34,17 @@ mpirun -np 4 \
   --mca btl tcp,self \
   --mca pml ob1 \
   --bind-to core \
+  nsys profile \
+    --trace=cuda,nvtx,osrt \
+    --sample=process-tree \
+    --backtrace=dwarf \
+    --cuda-memory-usage=true \
+    --force-overwrite=true \
+    -o results/results_mpi/ember_mpi_rank_%q{OMPI_COMM_WORLD_RANK} \
   ./build/ember \
     --width 1024 \
     --height 1024 \
-    --steps 500 \
+    --steps 1024 \
     --scenarios 20 \
     --seed 42 \
     --base-spread 0.80 \

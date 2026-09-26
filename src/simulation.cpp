@@ -9,7 +9,7 @@
  */
 
 #include "ember/simulation.hpp"
-
+#include "ember/nvtx.hpp"
 #include "ember/random.hpp"
 #include "ember/terrain.hpp"
 
@@ -61,6 +61,7 @@ WildfireSimulation::WildfireSimulation(SimulationConfig config, std::uint64_t sc
 }
 
 void WildfireSimulation::initialize() {
+    const nvtx::ScopedRange initialize_range("simulation.initialize", nvtx::teal, 2U);
     step_compute_seconds_ = 0.0;
     swap_seconds_ = 0.0;
     min_step_seconds_ = std::numeric_limits<double>::infinity();
@@ -201,16 +202,19 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
     // Time the compute phase.
     const auto compute_start = step_start;
     std::size_t burning_next = 0;
-
+    
+    {
+        const nvtx::ScopedRange compute_range("timestep.stencil_compute", nvtx::orange, 3U);
 #if AVX2
-    if (avx2_supported()) {
-        burning_next = step_avx2(step_index);
-    } else {
-        burning_next = step_scalar(step_index);
-    }
+        if (avx2_supported()) {
+            burning_next = step_avx2(step_index);
+        } else {
+            burning_next = step_scalar(step_index);
+        }
 #else
-    burning_next = step_scalar(step_index);
+        burning_next = step_scalar(step_index);
 #endif
+    }
 
     const auto compute_end = clock::now();
     const double compute_time = std::chrono::duration<double>(compute_end - compute_start).count();
@@ -218,7 +222,10 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
 
     // Time the buffer swap phase.
     const auto swap_start = clock::now();
-    grid_.swap_buffers();
+    {
+        const nvtx::ScopedRange swap_range("timestep.buffer_swap", nvtx::yellow, 3U);
+        grid_.swap_buffers();
+    }
     const auto swap_end = clock::now();
     const double swap_time = std::chrono::duration<double>(swap_end - swap_start).count();
     swap_seconds_ += swap_time;
@@ -309,6 +316,7 @@ std::size_t WildfireSimulation::step_cell(
 }
 
 ScenarioStatistics WildfireSimulation::run() {
+    const nvtx::ScopedRange scenario_range("simulation.run", nvtx::blue, 1U);
     using clock = std::chrono::steady_clock;
     const auto initialization_start = clock::now();
     initialize();
@@ -322,13 +330,16 @@ ScenarioStatistics WildfireSimulation::run() {
     const auto simulation_start = clock::now();
     
     // Main simulation loop: process steps until the fire extinguishes naturally or we hit the maximum allowed steps.
-    for (std::size_t step_index = 0; step_index < config_.max_steps; ++step_index) {
-        burning_cells = step(step_index);
-        statistics.steps_executed = step_index + 1;
-        if (burning_cells == 0) {
-            statistics.termination = TerminationReason::Extinguished;
-            statistics.extinguished_at_step = static_cast<std::int64_t>(statistics.steps_executed);
-            break;
+    {
+        const nvtx::ScopedRange timesteps_range("simulation.timesteps", nvtx::orange, 2U);
+        for (std::size_t step_index = 0; step_index < config_.max_steps; ++step_index) {
+            burning_cells = step(step_index);
+            statistics.steps_executed = step_index + 1;
+            if (burning_cells == 0) {
+                statistics.termination = TerminationReason::Extinguished;
+                statistics.extinguished_at_step = static_cast<std::int64_t>(statistics.steps_executed);
+                break;
+            }
         }
     }
     const auto simulation_end = clock::now();
@@ -339,15 +350,18 @@ ScenarioStatistics WildfireSimulation::run() {
     // Post-simulation analysis: sweep the final grid state to tally up the damage and remaining cells.
     const auto count = grid_.cell_count();
     const auto view = static_cast<const GridBuffers&>(grid_).current_view();
-    for (std::size_t index = 0; index < count; ++index) {
-        if (view.state[index] == CellState::Burning || view.state[index] == CellState::Burned) {
-            ++statistics.burned_cells;
-        }
-        if (view.state[index] == CellState::Burning) {
-            ++statistics.burning_cells;
-        }
-        if (view.state[index] == CellState::NonCombustible) {
-            ++statistics.non_combustible_cells;
+    {
+        const nvtx::ScopedRange reduction_range("simulation.final_grid_reduction", nvtx::green, 2U);
+        for (std::size_t index = 0; index < count; ++index) {
+            if (view.state[index] == CellState::Burning || view.state[index] == CellState::Burned) {
+                ++statistics.burned_cells;
+            }
+            if (view.state[index] == CellState::Burning) {
+                ++statistics.burning_cells;
+            }
+            if (view.state[index] == CellState::NonCombustible) {
+                ++statistics.non_combustible_cells;
+            }
         }
     }
 

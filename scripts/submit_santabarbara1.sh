@@ -27,8 +27,9 @@ mkdir -p results/results_base_server
 ./build/ember \
     --width 1024 \
     --height 1024 \
-    --steps 500 \
-    --scenarios 5 \
+    --steps 1024 \
+    --scenarios 20 \
+    --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
     --wind-direction 45 \

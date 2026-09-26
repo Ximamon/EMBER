@@ -11,6 +11,7 @@
 #include "ember/cli.hpp"
 #include "ember/runner.hpp"
 #include "ember/random.hpp"
+#include "ember/nvtx.hpp"
 
 #include <exception>
 #include <iomanip>
@@ -21,14 +22,19 @@
 #include <mpi.h>
 #endif
 
+namespace nvtx = ember::nvtx;
+
 int main(int argc, const char* argv[]) {
 
     int rank = 0;
 #if EMBER_ENABLE_MPI
     int world_size = 1;
-    MPI_Init(nullptr, nullptr);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    {
+        const nvtx::ScopedRange mpi_init_range("mpi.init", nvtx::red, 0U);
+        MPI_Init(nullptr, nullptr);
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    }
 #endif
 
     if (argc == 1) {
@@ -44,6 +50,7 @@ int main(int argc, const char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--benchmark-rng") == 0) {
             if (rank == 0) {
+                const nvtx::ScopedRange rng_range("app.benchmark_rng", nvtx::orange, 0U);
                 std::size_t iters = 100'000'000;
                 if (i + 1 < argc && argv[i + 1][0] != '-') {
                     iters = std::stoull(argv[i + 1]);
@@ -59,7 +66,11 @@ int main(int argc, const char* argv[]) {
 
     // Parse arguments first; if the user requests help or provides invalid input, the program terminates early without allocating resources.
     try {
-        const auto options = ember::parse_cli(argc, argv);
+        ember::CliOptions options;
+        {
+            const nvtx::ScopedRange cli_range("app.parse_cli", nvtx::yellow, 0U);
+            options = ember::parse_cli(argc, argv);
+        }
         if (options.show_help) {
             if (rank == 0) {
                 ember::print_help(std::cout);
@@ -75,6 +86,7 @@ int main(int argc, const char* argv[]) {
         
         // Only Rank 0 reports the consolidated metrics to the terminal
         if (rank == 0) {
+            const nvtx::ScopedRange print_range("app.print_stdout", nvtx::green, 0U);
             std::cout << "EMBER\n"
 #if EMBER_ENABLE_MPI
                       << "MPI Nodes: " << world_size << '\n'

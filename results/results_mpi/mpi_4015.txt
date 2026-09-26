@@ -1,0 +1,57 @@
+==================================================
+ Executing EMBER distributed on 4 physical DGX nodes
+Job ID: 4015
+Asigned nodes:
+gpu002
+gpu003
+gpu004
+gpu005
+==================================================
+Collecting data...
+Collecting data...
+Collecting data...
+Collecting data...
+EMBER
+MPI Nodes: 4
+Grid: 1024 x 1024
+Maximum steps: 1024
+Scenarios: 20
+Seed: 42
+Initialization time: 0.679621 s
+Simulation time (Wall-clock): 22.350957 s
+  ├── Stencil compute: 22.000068 s (98.43 %)
+  └── Buffer swap:     0.01 s (0.04 %)
+Execution time: 22.350957 s
+Mean scenario time: 4.435892 s
+Mean step time: 4.299 ms
+Cell updates: 21474836480
+Cluster Throughput: 960801639 cell updates/s
+Mean burned area: 84.189 %
+Completed scenarios: 20
+Extinguished scenarios: 0
+Max-step scenarios: 20
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 88.718 s
+  └── Effective Speedup:   3.97x / 4.00x (99.2 % efficiency)
+Summary: results/results_mpi//summary.csv
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-fa7e.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-65fd.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-c3e3.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-121d.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] ember_mpi_rank_0.nsys-rep[1/1] [0%                          ] ember_mpi_rank_1.nsys-rep[1/1] [0%                          ] ember_mpi_rank_0.nsys-rep[1/1] [====27%                     ] ember_mpi_rank_0.nsys-rep[1/1] [=====29%                    ] ember_mpi_rank_0.nsys-rep[1/1] [=====32%                    ] ember_mpi_rank_0.nsys-rep[1/1] [======34%                   ] ember_mpi_rank_0.nsys-rep[1/1] [=======37%                  ] ember_mpi_rank_0.nsys-rep[1/1] [=======38%                  ] ember_mpi_rank_0.nsys-rep[1/1] [=======39%                  ] ember_mpi_rank_0.nsys-rep[1/1] [0%                          ] ember_mpi_rank_1.nsys-rep[1/1] [========40%                 ] ember_mpi_rank_0.nsys-rep[1/1] [====27%                     ] ember_mpi_rank_1.nsys-rep[1/1] [=====29%                    ] ember_mpi_rank_1.nsys-rep[1/1] [========41%                 ] ember_mpi_rank_0.nsys-rep[1/1] [=====31%                    ] ember_mpi_rank_1.nsys-rep[1/1] [======34%                   ] ember_mpi_rank_1.nsys-rep[1/1] [=======38%                  ] ember_mpi_rank_1.nsys-rep[1/1] [=======39%                  ] ember_mpi_rank_1.nsys-rep[1/1] [=========44%                ] ember_mpi_rank_0.nsys-rep[1/1] [========40%                 ] ember_mpi_rank_1.nsys-rep[1/1] [==========47%               ] ember_mpi_rank_0.nsys-rep[1/1] [============57%             ] ember_mpi_rank_0.nsys-rep[1/1] [==============63%           ] ember_mpi_rank_0.nsys-rep[1/1] [========41%                 ] ember_mpi_rank_1.nsys-rep[1/1] [===============67%          ] ember_mpi_rank_0.nsys-rep[1/1] [=========44%                ] ember_mpi_rank_1.nsys-rep[1/1] [================70%         ] ember_mpi_rank_0.nsys-rep[1/1] [============54%             ] ember_mpi_rank_1.nsys-rep[1/1] [=============58%            ] ember_mpi_rank_1.nsys-rep[1/1] [=================73%        ] ember_mpi_rank_0.nsys-rep[1/1] [==============63%           ] ember_mpi_rank_1.nsys-rep[1/1] [===============66%          ] ember_mpi_rank_1.nsys-rep[1/1] [==================77%       ] ember_mpi_rank_0.nsys-rep[1/1] [===================80%      ] ember_mpi_rank_0.nsys-rep[1/1] [================70%         ] ember_mpi_rank_1.nsys-rep[1/1] [====================83%     ] ember_mpi_rank_0.nsys-rep[1/1] [========================100%] ember_mpi_rank_0.nsys-rep[1/1] [=================73%        ] ember_mpi_rank_1.nsys-rep[1/1] [==================76%       ] ember_mpi_rank_1.nsys-rep[1/1] [===================80%      ] ember_mpi_rank_1.nsys-rep[1/1] [====================83%     ] ember_mpi_rank_1.nsys-rep[1/1] [========================100%] ember_mpi_rank_1.nsys-rep[1/1] [========================100%] ember_mpi_rank_0.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/results_mpi/ember_mpi_rank_0.nsys-rep
+[1/1] [========================100%] ember_mpi_rank_1.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/results_mpi/ember_mpi_rank_1.nsys-rep
+[1/1] [0%                          ] ember_mpi_rank_2.nsys-rep[1/1] [0%                          ] ember_mpi_rank_2.nsys-rep[1/1] [====27%                     ] ember_mpi_rank_2.nsys-rep[1/1] [=====29%                    ] ember_mpi_rank_2.nsys-rep[1/1] [=====31%                    ] ember_mpi_rank_2.nsys-rep[1/1] [======34%                   ] ember_mpi_rank_2.nsys-rep[1/1] [=======37%                  ] ember_mpi_rank_2.nsys-rep[1/1] [=======38%                  ] ember_mpi_rank_2.nsys-rep[1/1] [=======39%                  ] ember_mpi_rank_2.nsys-rep[1/1] [========40%                 ] ember_mpi_rank_2.nsys-rep[1/1] [========41%                 ] ember_mpi_rank_2.nsys-rep[1/1] [=========44%                ] ember_mpi_rank_2.nsys-rep[1/1] [============54%             ] ember_mpi_rank_2.nsys-rep[1/1] [=============59%            ] ember_mpi_rank_2.nsys-rep[1/1] [==============63%           ] ember_mpi_rank_2.nsys-rep[1/1] [===============66%          ] ember_mpi_rank_2.nsys-rep[1/1] [================70%         ] ember_mpi_rank_2.nsys-rep[1/1] [=================73%        ] ember_mpi_rank_2.nsys-rep[1/1] [==================76%       ] ember_mpi_rank_2.nsys-rep[1/1] [===================80%      ] ember_mpi_rank_2.nsys-rep[1/1] [====================83%     ] ember_mpi_rank_2.nsys-rep[1/1] [========================100%] ember_mpi_rank_2.nsys-rep[1/1] [========================100%] ember_mpi_rank_2.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/results_mpi/ember_mpi_rank_2.nsys-rep
+[1/1] [0%                          ] ember_mpi_rank_3.nsys-rep[1/1] [0%                          ] ember_mpi_rank_3.nsys-rep[1/1] [====26%                     ] ember_mpi_rank_3.nsys-rep[1/1] [=====29%                    ] ember_mpi_rank_3.nsys-rep[1/1] [=====31%                    ] ember_mpi_rank_3.nsys-rep[1/1] [======35%                   ] ember_mpi_rank_3.nsys-rep[1/1] [=======38%                  ] ember_mpi_rank_3.nsys-rep[1/1] [=======39%                  ] ember_mpi_rank_3.nsys-rep[1/1] [========40%                 ] ember_mpi_rank_3.nsys-rep[1/1] [========41%                 ] ember_mpi_rank_3.nsys-rep[1/1] [========42%                 ] ember_mpi_rank_3.nsys-rep[1/1] [===========53%              ] ember_mpi_rank_3.nsys-rep[1/1] [============57%             ] ember_mpi_rank_3.nsys-rep[1/1] [=============60%            ] ember_mpi_rank_3.nsys-rep[1/1] [==============64%           ] ember_mpi_rank_3.nsys-rep[1/1] [================68%         ] ember_mpi_rank_3.nsys-rep[1/1] [================71%         ] ember_mpi_rank_3.nsys-rep[1/1] [==================75%       ] ember_mpi_rank_3.nsys-rep[1/1] [==================78%       ] ember_mpi_rank_3.nsys-rep[1/1] [===================82%      ] ember_mpi_rank_3.nsys-rep[1/1] [====================83%     ] ember_mpi_rank_3.nsys-rep[1/1] [========================100%] ember_mpi_rank_3.nsys-rep[1/1] [========================100%] ember_mpi_rank_3.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/results_mpi/ember_mpi_rank_3.nsys-rep

@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1              # Reserve 1 GPU NVIDIA A100-SXM4
-#SBATCH --time=00:05:00
+#SBATCH --time=00:15:00
 #SBATCH --output=cuda_%j.out
 #SBATCH --error=cuda_%j.err
 
@@ -13,6 +13,7 @@
 module load gcc/14.2.0
 module load openmpi/gcc/64/5.0.7
 module load cuda12.8/toolkit/12.8.1
+module load Nsight-Compute/2026.1
 
 echo "=================================================="
 echo "CUDA KERNEL TEST ON NVIDIA A100"
@@ -24,8 +25,9 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/results_cuda/
+mkdir -p results/results_cuda_ncu/
 
+ncu --import-source=yes --clock-control=none -k step_stencil_kernel -c 5 -o results/results_cuda_ncu/ember_cuda_profile --set=full -f \
 ./build/ember \
     --width 1024 \
     --height 1024 \
@@ -36,7 +38,7 @@ mkdir -p results/results_cuda/
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/results_cuda/ \
+    --output results/results_cuda_ncu/ \
 
 echo "=================================================="
 echo "Simulation completed successfully on NVIDIA A100 GPU."

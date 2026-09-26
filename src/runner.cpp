@@ -9,11 +9,12 @@
  */
 
 #include "ember/runner.hpp"
-
+#include "ember/nvtx.hpp"
 #include "ember/export.hpp"
 #include "ember/simulation.hpp"
 #include "ember/terrain.hpp"
 
+#include <iostream>
 #include <algorithm>
 #include <filesystem>
 #include <iomanip>
@@ -28,7 +29,6 @@
 #if EMBER_ENABLE_CUDA
 #include "ember/cuda_simulation.hpp"
 #endif
-#include <iostream>
 
 namespace ember {
 namespace {
@@ -50,14 +50,24 @@ std::string scenario_stem(std::uint64_t scenario_id) {
 } // namespace
 
 BatchStatistics run_batch(const SimulationConfig& input_config) {
-    const auto load_start = std::chrono::steady_clock::now();
-    const auto config = resolve_terrain_config(input_config);
-    const double load_seconds = (!input_config.terrain && config.terrain) ?
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
+    const nvtx::ScopedRange batch_range("batch.run", nvtx::purple, 0U);
+
+    SimulationConfig config;
+    double load_seconds = 0.0;
+    {
+        const nvtx::ScopedRange terrain_range("batch.resolve_terrain", nvtx::teal, 1U);
+        const auto load_start = std::chrono::steady_clock::now();
+        config = resolve_terrain_config(input_config);
+        load_seconds = (!input_config.terrain && config.terrain) ?
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
+    }
 
 
     // Ensure configuration integrity before allocating any large grid buffers or creating directories.
-    validate_config(config);
+    {
+        const nvtx::ScopedRange validation_range("config.validate", nvtx::teal, 1U);
+        validate_config(config);
+    }
 
     using clock = std::chrono::steady_clock;
     const auto batch_wall_start = clock::now();
@@ -76,9 +86,10 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
 #if EMBER_ENABLE_CUDA
     // Check for CUDA device availability only on the master node (Rank 0) to avoid redundant checks across all MPI ranks.
-    if (rank == 0) {
-        check_cuda_device();
-    }
+    // if (rank == 0) {
+    //     const nvtx::ScopedRange cuda_dev_range("cuda.check_device", nvtx::orange, 1U);
+    //     check_cuda_device();
+    // }
 #endif
 
     BatchStatistics batch;
@@ -102,6 +113,9 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         if (scenario_index % static_cast<std::size_t>(world_size) != static_cast<std::size_t>(rank)) {
             continue; // This scenario is assigned to a different MPI rank; skip it.
         }
+
+        const std::string scenario_range_name = "batch.scenario." + std::to_string(scenario_index);
+        const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U);
 
         // Initialize a new WildfireSimulation instance for the current scenario and run it to completion.
         WildfireSimulation simulation(config, static_cast<std::uint64_t>(scenario_index));
@@ -158,6 +172,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
         // If the export format is not None, export the final grid state to the specified format(s).
         if (config.export_format != ExportFormat::None) {
+            const nvtx::ScopedRange export_range("scenario.export_grid", nvtx::yellow, 2U);
             const auto stem = scenario_stem(static_cast<std::uint64_t>(scenario_index));
             const auto grid = static_cast<const GridBuffers&>(simulation.grid()).current_view();
 
@@ -176,6 +191,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 #if EMBER_ENABLE_MPI
     // Gather all scenario results from other ranks to the master node (Rank 0) for final aggregation and reporting.
     if (world_size > 1) {
+        const nvtx::ScopedRange gather_range("mpi.gather_results", nvtx::red, 1U);
         using ResultType = decltype(batch.scenario_results)::value_type;
         static_assert(std::is_trivially_copyable_v<ResultType>,
                       "ScenarioResult must be trivially copyable for MPI communication.");
@@ -217,7 +233,10 @@ const auto batch_wall_end = clock::now(); // <-- Fin cronómetro de pared
         std::chrono::duration<double>(batch_wall_end - batch_wall_start).count();
 
     if (rank == 0) {
-        finalize_batch_statistics(batch);
+        {
+            const nvtx::ScopedRange statistics_range("batch.finalize_statistics", nvtx::green, 1U);
+            finalize_batch_statistics(batch);
+        }
 
         // On multi-node parallel execution, replace with the actual elapsed wall-clock time
         if (world_size > 1) {
@@ -232,6 +251,7 @@ const auto batch_wall_end = clock::now(); // <-- Fin cronómetro de pared
         }
 
         if (!config.output_directory.empty()) {
+            const nvtx::ScopedRange summary_range("batch.export_summary", nvtx::yellow, 1U);
             export_summary_csv(output_directory / "summary.csv", batch);
         }
     }
