@@ -86,10 +86,10 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
 #if EMBER_ENABLE_CUDA
     // Check for CUDA device availability only on the master node (Rank 0) to avoid redundant checks across all MPI ranks.
-    if (rank == 0) {
-        const nvtx::ScopedRange cuda_dev_range("cuda.check_device", nvtx::orange, 1U);
-        check_cuda_device();
-    }
+    // if (rank == 0) {
+    //     const nvtx::ScopedRange cuda_dev_range("cuda.check_device", nvtx::orange, 1U);
+    //     check_cuda_device();
+    // }
 #endif
 
     BatchStatistics batch;
