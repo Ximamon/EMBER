@@ -106,6 +106,7 @@ separate from the scalar baseline.
 
 - [Simplified propagation model](docs/model.md)
 - [CUDA readiness notes](docs/cuda-readiness.md)
+- [CUDA initialization experiment](docs/cuda-initialization.md)
 
 To generate and view the HTML API documentation locally using Doxygen:
 

@@ -59,6 +59,12 @@ struct ScenarioStatistics {
     double combustible_burned_percent{};
     /// @brief Initialization time in seconds for the simulation.
     double initialization_seconds{};
+    double host_initialization_seconds{};
+    double device_allocation_seconds{};
+    double host_to_device_seconds{};
+    double device_initialization_seconds{};
+    double device_to_host_seconds{};
+    double scenario_wall_seconds{};
     /// @brief Simulation time in seconds for the simulation.
     double simulation_seconds{};
 
@@ -81,6 +87,8 @@ struct ScenarioStatistics {
 struct BatchStatistics {
     std::size_t width{}, height{};
     double terrain_load_seconds{};
+    double cuda_startup_seconds{};
+    double cuda_release_seconds{};
     /// @brief Vector containing statistics for each individual scenario in the batch.
     std::vector<ScenarioStatistics> scenario_results;
     /// @brief Total number of cell state updates across all scenarios.

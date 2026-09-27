@@ -1,12 +1,15 @@
 #include "ember/cuda_simulation.hpp"
 #include "ember/random.hpp"
 #include "ember/nvtx.hpp"
+#include "ember/simulation.hpp"
 
 #include <cuda_runtime.h>
 #include <iostream>
 #include <chrono>
 #include <cstdint>
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 namespace ember {
 
@@ -50,6 +53,55 @@ namespace ember {
     __device__ __forceinline__ double cuda_uniform01(uint64_t bits) {
         // Escala exactamente a [0, 1) en doble precisión idéntico a la CPU
         return static_cast<double>(bits >> 11U) * 0x1.0p-53;
+    }
+
+    // Synthetic input must use the CPU hash, not the legacy CUDA spread hash above.
+    __device__ __forceinline__ uint64_t input_mix64(uint64_t value) {
+        value += 0x9e3779b97f4a7c15ULL;
+        value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+        value = (value ^ (value >> 27U)) * 0x94d049bb133111ebULL;
+        return value ^ (value >> 31U);
+    }
+
+    __device__ __forceinline__ uint64_t input_hash_combine(uint64_t seed, uint64_t value) {
+        return input_mix64(seed ^ input_mix64(value + 0x517cc1b727220a95ULL));
+    }
+
+    __device__ __forceinline__ uint64_t input_keyed_hash(uint64_t seed, uint64_t tag, uint64_t cell) {
+        return input_hash_combine(input_hash_combine(input_hash_combine(seed, tag), cell), 0);
+    }
+
+    __device__ __forceinline__ float input_uniform_range(uint64_t bits, float minimum, float maximum) {
+        const float unit = static_cast<float>(static_cast<double>(bits >> 11U) * 0x1.0p-53);
+        return __fadd_rn(minimum, __fmul_rn(unit, __fsub_rn(maximum, minimum)));
+    }
+
+    __global__ void initialize_synthetic_kernel(
+        std::size_t count, std::size_t center, uint64_t seed,
+        float min_fuel, float max_fuel, float min_moisture, float max_moisture,
+        float min_vegetation, float max_vegetation, float min_elevation, float max_elevation,
+        float non_combustible_fraction, float burn_rate,
+        const uint64_t* ignitions, std::size_t ignition_count,
+        CellState* state_curr, CellState* state_next, float* fuel_curr, float* fuel_next,
+        float* moisture, float* vegetation, float* elevation)
+    {
+        const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+        if (index >= count) return;
+        const uint64_t key = static_cast<uint64_t>(index);
+        float fuel = input_uniform_range(input_keyed_hash(seed, random_tag::fuel, key), min_fuel, max_fuel);
+        moisture[index] = input_uniform_range(input_keyed_hash(seed, random_tag::moisture, key), min_moisture, max_moisture);
+        vegetation[index] = input_uniform_range(input_keyed_hash(seed, random_tag::vegetation, key), min_vegetation, max_vegetation);
+        elevation[index] = input_uniform_range(input_keyed_hash(seed, random_tag::elevation, key), min_elevation, max_elevation);
+        const double non_combustible_draw = static_cast<double>(input_keyed_hash(seed, random_tag::non_combustible, key) >> 11U) * 0x1.0p-53;
+        CellState state = non_combustible_draw < non_combustible_fraction ? CellState::NonCombustible : CellState::Unburned;
+        bool ignite = ignition_count == 0 && index == center;
+        for (std::size_t i = 0; i < ignition_count; ++i) ignite |= ignitions[i] == index;
+        if (ignite) {
+            state = CellState::Burning;
+            fuel = fmaxf(fuel, burn_rate);
+        }
+        state_curr[index] = state_next[index] = state;
+        fuel_curr[index] = fuel_next[index] = fuel;
     }
 
     __device__ __forceinline__ float cuda_clamp01(float value) {
@@ -226,12 +278,72 @@ namespace ember {
         return true;
     }
 
+    bool initialize_cuda_context(double& seconds) {
+        const nvtx::ScopedRange range("cuda.startup", nvtx::purple, 1U);
+        const auto start = std::chrono::steady_clock::now();
+        const auto status = cudaFree(nullptr);
+        seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        if (status != cudaSuccess) {
+            std::cerr << "[CUDA ERROR] CUDA startup: " << cudaGetErrorString(status) << '\n';
+            return false;
+        }
+        return true;
+    }
+
+    CudaWorkspace::~CudaWorkspace() noexcept {
+        double ignored = 0.0;
+        release(ignored);
+    }
+
+    bool CudaWorkspace::allocate(double& seconds) {
+        seconds = 0.0;
+        if (state_curr_) return true;
+        const nvtx::ScopedRange range("cuda.allocate", nvtx::purple, 2U);
+        const auto start = std::chrono::steady_clock::now();
+        const auto bytes_state = cell_count_ * sizeof(CellState);
+        const auto bytes_float = cell_count_ * sizeof(float);
+        const auto allocate_one = [](auto** pointer, std::size_t bytes) {
+            const auto status = cudaMalloc(pointer, bytes);
+            if (status != cudaSuccess)
+                std::cerr << "[CUDA ERROR] allocation: " << cudaGetErrorString(status) << '\n';
+            return status == cudaSuccess;
+        };
+        const bool ok = allocate_one(&state_curr_, bytes_state) &&
+                        allocate_one(&state_next_, bytes_state) &&
+                        allocate_one(&fuel_curr_, bytes_float) &&
+                        allocate_one(&fuel_next_, bytes_float) &&
+                        allocate_one(&elevation_, bytes_float) &&
+                        allocate_one(&moisture_, bytes_float) &&
+                        allocate_one(&vegetation_, bytes_float);
+        seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        if (!ok) {
+            double ignored = 0.0;
+            release(ignored);
+        }
+        return ok;
+    }
+
+    void CudaWorkspace::release(double& seconds) noexcept {
+        const nvtx::ScopedRange range("cuda.free", nvtx::purple, 1U);
+        const auto start = std::chrono::steady_clock::now();
+        cudaFree(state_curr_); cudaFree(state_next_);
+        cudaFree(fuel_curr_); cudaFree(fuel_next_);
+        cudaFree(elevation_); cudaFree(moisture_); cudaFree(vegetation_);
+        cudaFree(ignition_indices_);
+        state_curr_ = state_next_ = nullptr;
+        fuel_curr_ = fuel_next_ = elevation_ = moisture_ = vegetation_ = nullptr;
+        ignition_indices_ = nullptr;
+        ignition_capacity_ = 0;
+        seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    }
+
     bool run_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,
         GridBuffers& buffers,
+        CudaWorkspace& workspace,
         std::size_t& completed_steps,
-        double& kernel_time_seconds)
+        CudaScenarioTimings& timings)
     {
         const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
         const int width = static_cast<int>(config.width);
@@ -241,42 +353,104 @@ namespace ember {
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
-        // Punteros a memoria en la tarjeta NVIDIA A100
-        CellState *d_state_curr = nullptr;
-        CellState *d_state_next = nullptr;
-        float *d_fuel_curr = nullptr;
-        float *d_fuel_next = nullptr;
-        float *d_elevation = nullptr;
-        float *d_moisture = nullptr;
-        float *d_vegetation = nullptr;
-
-        {
-            const nvtx::ScopedRange allocation_range("cuda.allocate", nvtx::purple, 2U);
-            CUDA_CHECK(cudaMalloc(&d_state_curr, bytes_state));
-            CUDA_CHECK(cudaMalloc(&d_state_next, bytes_state));
-            CUDA_CHECK(cudaMalloc(&d_fuel_curr, bytes_float));
-            CUDA_CHECK(cudaMalloc(&d_fuel_next, bytes_float));
-            CUDA_CHECK(cudaMalloc(&d_elevation, bytes_float));
-            CUDA_CHECK(cudaMalloc(&d_moisture, bytes_float));
-            CUDA_CHECK(cudaMalloc(&d_vegetation, bytes_float));
-        }
+        if (!workspace.allocate(timings.allocation_seconds)) return false;
+        // Start each scenario from the same two buffers, regardless of pointer swaps in prior runs.
+        CellState* d_state_curr = workspace.state_curr_;
+        CellState* d_state_next = workspace.state_next_;
+        float* d_fuel_curr = workspace.fuel_curr_;
+        float* d_fuel_next = workspace.fuel_next_;
+        float* d_elevation = workspace.elevation_;
+        float* d_moisture = workspace.moisture_;
+        float* d_vegetation = workspace.vegetation_;
 
         auto view = buffers.current_view();
         if (view.state == nullptr || view.fuel == nullptr || view.elevation == nullptr ||
             view.moisture == nullptr || view.vegetation == nullptr) {
-            std::cerr << "[CUDA Error] Los buffers de entrada son nulos. Requiere simulation.initialize().\n";
+            std::cerr << "[CUDA ERROR] host output buffers are not initialized\n";
             return false;
         }
 
-        // Transferencia inicial Host -> Device (única por escenario)
-
-        {
+        if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
+            const auto count = config.ignitions.size();
+            if (count > workspace.ignition_capacity_) {
+                const nvtx::ScopedRange allocation_range("cuda.allocate_ignitions", nvtx::purple, 2U);
+                const auto start = std::chrono::steady_clock::now();
+                cudaFree(workspace.ignition_indices_);
+                workspace.ignition_indices_ = nullptr;
+                workspace.ignition_capacity_ = 0;
+                CUDA_CHECK(cudaMalloc(&workspace.ignition_indices_, count * sizeof(uint64_t)));
+                workspace.ignition_capacity_ = count;
+                timings.allocation_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+            }
+            if (count != 0) {
+                std::vector<uint64_t> indices;
+                indices.reserve(count);
+                for (const auto& point : config.ignitions)
+                    indices.push_back(static_cast<uint64_t>(point.y * config.width + point.x));
+                const nvtx::ScopedRange upload_range("cuda.host_to_device_ignitions", nvtx::teal, 2U);
+                const auto start = std::chrono::steady_clock::now();
+                CUDA_CHECK(cudaMemcpy(workspace.ignition_indices_, indices.data(), count * sizeof(uint64_t), cudaMemcpyHostToDevice));
+                timings.host_to_device_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+            }
+            const nvtx::ScopedRange init_range("cuda.initialize_synthetic", nvtx::teal, 2U);
+            const auto start = std::chrono::steady_clock::now();
+            const uint64_t seed = ember::scenario_seed(config.seed, static_cast<uint64_t>(scenario_id));
+            const unsigned int threads = 256;
+            const unsigned int blocks = static_cast<unsigned int>((num_cells + threads - 1) / threads);
+            initialize_synthetic_kernel<<<blocks, threads>>>(
+                num_cells, (config.height / 2) * config.width + config.width / 2, seed,
+                config.min_fuel, config.max_fuel, config.min_moisture, config.max_moisture,
+                config.min_vegetation, config.max_vegetation, config.min_elevation, config.max_elevation,
+                config.non_combustible_fraction, config.burn_rate,
+                workspace.ignition_indices_, count,
+                d_state_curr, d_state_next, d_fuel_curr, d_fuel_next,
+                d_moisture, d_vegetation, d_elevation);
+            CUDA_CHECK(cudaGetLastError());
+            CUDA_CHECK(cudaDeviceSynchronize());
+            timings.device_initialization_seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+            if (config.verify_cuda_initialization) {
+                const nvtx::ScopedRange verify_range("cuda.verify_initial_input", nvtx::green, 2U);
+                SimulationConfig cpu_config = config;
+                cpu_config.synthetic_init_backend = SyntheticInitBackend::Cpu;
+                cpu_config.verify_cuda_initialization = false;
+                WildfireSimulation reference(cpu_config, scenario_id);
+                reference.initialize();
+                const auto expected = static_cast<const GridBuffers&>(reference.grid()).current_view();
+                std::vector<CellState> states(num_cells);
+                std::vector<float> values(num_cells);
+                CUDA_CHECK(cudaMemcpy(states.data(), d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
+                if (std::memcmp(states.data(), expected.state, bytes_state) != 0) {
+                    std::cerr << "[CUDA ERROR] initialized state differs from CPU\n";
+                    return false;
+                }
+                const auto compare_field = [&](const char* name, const float* device, const float* host) {
+                    const auto status = cudaMemcpy(values.data(), device, bytes_float, cudaMemcpyDeviceToHost);
+                    if (status != cudaSuccess) {
+                        std::cerr << "[CUDA ERROR] verifying " << name << ": " << cudaGetErrorString(status) << '\n';
+                        return false;
+                    }
+                    if (std::memcmp(values.data(), host, bytes_float) != 0) {
+                        std::cerr << "[CUDA ERROR] initialized " << name << " differs from CPU\n";
+                        return false;
+                    }
+                    return true;
+                };
+                if (!compare_field("fuel", d_fuel_curr, expected.fuel) ||
+                    !compare_field("moisture", d_moisture, expected.moisture) ||
+                    !compare_field("vegetation", d_vegetation, expected.vegetation) ||
+                    !compare_field("elevation", d_elevation, expected.elevation)) return false;
+            }
+        } else {
             const nvtx::ScopedRange upload_range("cuda.host_to_device", nvtx::teal, 2U);
+            const auto start = std::chrono::steady_clock::now();
             CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
             CUDA_CHECK(cudaMemcpy(d_fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice));
             CUDA_CHECK(cudaMemcpy(d_elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice));
             CUDA_CHECK(cudaMemcpy(d_moisture, view.moisture, bytes_float, cudaMemcpyHostToDevice));
             CUDA_CHECK(cudaMemcpy(d_vegetation, view.vegetation, bytes_float, cudaMemcpyHostToDevice));
+            timings.host_to_device_seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         }
 
         // Precalcular vectores directores de viento para evitar funciones trigonométricas en la GPU
@@ -330,26 +504,22 @@ namespace ember {
         }
 
         const auto t_end = std::chrono::steady_clock::now();
-        kernel_time_seconds = std::chrono::duration<double>(t_end - t_start).count();
+        timings.kernel_seconds = std::chrono::duration<double>(t_end - t_start).count();
         completed_steps = config.max_steps;
 
         // Recuperar el resultado final de Device a Host
         {
             const nvtx::ScopedRange download_range("cuda.device_to_host", nvtx::teal, 2U);
+            const auto start = std::chrono::steady_clock::now();
             CUDA_CHECK(cudaMemcpy(view.state, d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
             CUDA_CHECK(cudaMemcpy(view.fuel, d_fuel_curr, bytes_float, cudaMemcpyDeviceToHost));
-        }
-
-        // Liberar memoria VRAM
-        {
-            const nvtx::ScopedRange free_range("cuda.free", nvtx::purple, 2U);
-            cudaFree(d_state_curr);
-            cudaFree(d_state_next);
-            cudaFree(d_fuel_curr);
-            cudaFree(d_fuel_next);
-            cudaFree(d_elevation);
-            cudaFree(d_moisture);
-            cudaFree(d_vegetation);
+            if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
+                CUDA_CHECK(cudaMemcpy(view.moisture, d_moisture, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.vegetation, d_vegetation, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.elevation, d_elevation, bytes_float, cudaMemcpyDeviceToHost));
+            }
+            timings.device_to_host_seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         }
 
         return true;

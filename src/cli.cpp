@@ -122,6 +122,13 @@ ExportFormat parse_export_format(const std::string& text) {
     throw std::invalid_argument("--export must be one of: none, csv, ppm, both");
 }
 
+SyntheticInitBackend parse_init_backend(const std::string& text) {
+    if (text == "cpu") return SyntheticInitBackend::Cpu;
+    if (text == "openmp") return SyntheticInitBackend::OpenMp;
+    if (text == "gpu") return SyntheticInitBackend::Cuda;
+    throw std::invalid_argument("--cuda-init must be one of: cpu, openmp, gpu");
+}
+
 } // namespace
 
 CliOptions parse_cli(int argc, const char* const argv[]) {
@@ -151,6 +158,10 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
             options.config.scenarios = parse_size(require_value(index, argc, argv, option), option);
         } else if (option == "--seed") {
             options.config.seed = parse_u64(require_value(index, argc, argv, option), option);
+        } else if (option == "--cuda-init") {
+            options.config.synthetic_init_backend = parse_init_backend(require_value(index, argc, argv, option));
+        } else if (option == "--verify-cuda-init") {
+            options.config.verify_cuda_initialization = true;
         } else if (option == "--wind-direction") {
             options.config.wind_direction_degrees = parse_float(require_value(index, argc, argv, option), option);
         } else if (option == "--wind-strength") {
@@ -188,6 +199,8 @@ void print_help(std::ostream& output) {
         "  --steps N                 Maximum steps (default: 500)\n"
         "  --scenarios N             Independent scenarios (default: 1)\n"
         "  --seed N                  Global seed (default: 42)\n"
+        "  --cuda-init MODE          cpu, openmp, or gpu (CUDA default: gpu; CPU default: cpu)\n"
+        "  --verify-cuda-init        Compare GPU-generated input with CPU before running\n"
         "  --wind-direction DEG      Direction wind blows toward; 0=east, 90=north\n"
         "  --wind-strength X         Wind strength in [0,1] (default: 0.4)\n"
         "  --base-spread X           Base spread probability in [0,1] (default: 0.25)\n"

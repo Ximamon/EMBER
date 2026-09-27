@@ -74,11 +74,16 @@ void WildfireSimulation::initialize() {
     initialized_ = true;
 }
 
+void WildfireSimulation::initialize_empty() {
+    grid_ = GridBuffers(config_.width, config_.height);
+    initialized_ = true;
+}
+
 void WildfireSimulation::initialize_synthetic_terrain() {
     auto current = grid_.current_view();
     auto next = grid_.next_view();
     const auto count = grid_.cell_count();
-    for (std::size_t index = 0; index < count; ++index) {
+    const auto initialize_cell = [&](std::size_t index) {
         // We use keyed hashing to ensure that fuel, moisture, and vegetation 
         // get independent pseudo-random streams, even though they share the same seed and index.
         const auto key = as_u64(index);
@@ -96,7 +101,16 @@ void WildfireSimulation::initialize_synthetic_terrain() {
             keyed_hash(scenario_seed_, random_tag::non_combustible, key)) < config_.non_combustible_fraction;
         current.state[index] = non_combustible ? CellState::NonCombustible : CellState::Unburned;
         next.state[index] = current.state[index];
+    };
+#if EMBER_HAVE_OPENMP
+    if (config_.synthetic_init_backend == SyntheticInitBackend::OpenMp) {
+#pragma omp parallel for schedule(static)
+        for (std::int64_t index = 0; index < static_cast<std::int64_t>(count); ++index)
+            initialize_cell(static_cast<std::size_t>(index));
+        return;
     }
+#endif
+    for (std::size_t index = 0; index < count; ++index) initialize_cell(index);
 }
 
 void WildfireSimulation::initialize_terrain() {

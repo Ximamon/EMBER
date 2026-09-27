@@ -54,6 +54,17 @@ std::size_t checked_cell_count(const SimulationConfig& config) {
 }
 
 void validate_config(const SimulationConfig& config) {
+#if !EMBER_ENABLE_CUDA
+    if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
+        throw std::invalid_argument("--cuda-init gpu requires a CUDA build");
+#endif
+#if !EMBER_HAVE_OPENMP
+    if (config.synthetic_init_backend == SyntheticInitBackend::OpenMp)
+        throw std::invalid_argument("--cuda-init openmp requires OpenMP support");
+#endif
+    if (config.verify_cuda_initialization &&
+        config.synthetic_init_backend != SyntheticInitBackend::Cuda)
+        throw std::invalid_argument("--verify-cuda-init requires --cuda-init gpu");
     const auto cell_count = checked_cell_count(config);
     if (config.max_steps == 0) {
         throw std::invalid_argument("steps must be greater than zero");

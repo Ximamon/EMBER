@@ -37,6 +37,8 @@ public:
 
     /// @brief Initializes the simulation, setting up the grid and preparing for execution.
     void initialize();
+    // Allocates host output storage when synthetic input is generated on the GPU.
+    void initialize_empty();
     /**
      * @brief Performs a single simulation step.
      * @param step_index The index of the current step.

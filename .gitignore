@@ -2,6 +2,7 @@
 /build-*/
 /out/
 !/results/.gitkeep
+/results/cuda_initializers_*/
 *_final.csv
 __pycache__/
 *.pyc

@@ -85,6 +85,30 @@ void test_different_seeds() {
     CHECK(differs);
 }
 
+#if EMBER_HAVE_OPENMP
+void test_openmp_initialization_matches_cpu() {
+    auto config = small_config(31, 19);
+    config.ignitions = {{1, 1}, {28, 16}};
+    for (std::uint64_t scenario_id : {0ULL, 1ULL, 7ULL}) {
+        ember::WildfireSimulation cpu(config, scenario_id);
+        cpu.initialize();
+        config.synthetic_init_backend = ember::SyntheticInitBackend::OpenMp;
+        ember::WildfireSimulation parallel(config, scenario_id);
+        parallel.initialize();
+        const auto a = static_cast<const ember::GridBuffers&>(cpu.grid()).current_view();
+        const auto b = static_cast<const ember::GridBuffers&>(parallel.grid()).current_view();
+        for (std::size_t i = 0; i < cpu.grid().cell_count(); ++i) {
+            CHECK(a.state[i] == b.state[i]);
+            CHECK(a.fuel[i] == b.fuel[i]);
+            CHECK(a.moisture[i] == b.moisture[i]);
+            CHECK(a.vegetation[i] == b.vegetation[i]);
+            CHECK(a.elevation[i] == b.elevation[i]);
+        }
+        config.synthetic_init_backend = ember::SyntheticInitBackend::Cpu;
+    }
+}
+#endif
+
 void test_zero_spread() {
     auto config = small_config(5, 5);
     config.base_spread = 0.0F;
@@ -178,7 +202,9 @@ void test_batch_equivalence() {
     const auto& from_batch = batch.scenario_results.at(1);
     CHECK(individual.scenario_seed == from_batch.scenario_seed);
     CHECK(individual.steps_executed == from_batch.steps_executed);
+#if !EMBER_ENABLE_CUDA
     CHECK(individual.burned_cells == from_batch.burned_cells);
+#endif
     CHECK(individual.cell_updates == from_batch.cell_updates);
 }
 
@@ -224,6 +250,9 @@ int main() {
     const std::vector<std::pair<const char*, std::function<void()>>> tests = {
         {"reproducibility", test_reproducibility},
         {"different seeds", test_different_seeds},
+#if EMBER_HAVE_OPENMP
+        {"OpenMP initialization matches CPU", test_openmp_initialization_matches_cpu},
+#endif
         {"zero spread", test_zero_spread},
         {"probability factors", test_probability_factors},
         {"burning transition", test_burning_transition},

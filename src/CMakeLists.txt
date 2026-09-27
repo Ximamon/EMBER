@@ -28,6 +28,9 @@ target_link_libraries(
         ember_warnings
         ember_sanitizers
 )
+if(WIN32)
+    target_compile_definitions(ember_core PUBLIC NOMINMAX)
+endif()
 
 # Config AVX2 support
 ember_configure_simd(ember_core)
@@ -37,6 +40,14 @@ ember_configure_mpi(ember_core)
 
 # Config CUDA support
 ember_configure_cuda(ember_core)
+
+find_package(OpenMP QUIET COMPONENTS CXX)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(ember_core PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(ember_core PUBLIC EMBER_HAVE_OPENMP=1)
+else()
+    target_compile_definitions(ember_core PUBLIC EMBER_HAVE_OPENMP=0)
+endif()
 
 # Config NVTX profiling ranges
 ember_configure_nvtx(ember_core)

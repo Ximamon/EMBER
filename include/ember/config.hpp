@@ -46,6 +46,8 @@ enum class ExportFormat {
     Both
 };
 
+enum class SyntheticInitBackend { Cpu, OpenMp, Cuda };
+
 /**
  * @class SimulationConfig
  * @brief Configuration structure for the Ember simulation.
@@ -56,6 +58,12 @@ enum class ExportFormat {
  * The fourth group includes ignition points and output settings for exporting simulation data.
  */
 struct SimulationConfig {
+#if EMBER_ENABLE_CUDA
+    SyntheticInitBackend synthetic_init_backend{SyntheticInitBackend::Cuda};
+#else
+    SyntheticInitBackend synthetic_init_backend{SyntheticInitBackend::Cpu};
+#endif
+    bool verify_cuda_initialization{false};
     std::string terrain_path;
     std::shared_ptr<const TerrainData> terrain;
     bool width_explicit{false}, height_explicit{false};

@@ -6,9 +6,10 @@ option(
     OFF
 )
 
-target_compile_options(
-    ember_warnings INTERFACE
-    $<$<COMPILE_LANGUAGE:CXX>:
+if(MSVC)
+    target_compile_options(ember_warnings INTERFACE $<$<COMPILE_LANGUAGE:CXX>:/W4>)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(ember_warnings INTERFACE $<$<COMPILE_LANGUAGE:CXX>:
         -Wall
         -Wextra
         -Wpedantic
@@ -19,9 +20,12 @@ target_compile_options(
         -Wcast-align
         -Wunused
         -Woverloaded-virtual
-    >
-    #-Wold-style-cast
-)
+    >)
+endif()
 if (EMBER_WARNINGS_AS_ERRORS)
-    target_compile_options(ember_warnings INTERFACE -Werror)
+    if(MSVC)
+        target_compile_options(ember_warnings INTERFACE /WX)
+    else()
+        target_compile_options(ember_warnings INTERFACE -Werror)
+    endif()
 endif()

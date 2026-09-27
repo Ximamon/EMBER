@@ -12,12 +12,14 @@
 #include "ember/nvtx.hpp"
 #include "ember/export.hpp"
 #include "ember/simulation.hpp"
+#include "ember/random.hpp"
 #include "ember/terrain.hpp"
 
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
 #include <iomanip>
+#include <stdexcept>
 #include <sstream>
 #include <type_traits>
 #include <vector>
@@ -106,6 +108,11 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     }
     batch.scenario_results.reserve(config.scenarios);
     const std::filesystem::path output_directory(config.output_directory);
+#if EMBER_ENABLE_CUDA
+    CudaWorkspace cuda_workspace(checked_cell_count(config));
+    if (!initialize_cuda_context(batch.cuda_startup_seconds))
+        throw std::runtime_error("CUDA context initialization failed");
+#endif
 
     // Process each scenario sequentially. 
     // Each simulation instance generates its own random seed based on its scenario index.
@@ -116,42 +123,65 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
         const std::string scenario_range_name = "batch.scenario." + std::to_string(scenario_index);
         const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U);
+#if EMBER_ENABLE_CUDA
+        const auto scenario_wall_start = clock::now();
+#endif
 
         // Initialize a new WildfireSimulation instance for the current scenario and run it to completion.
         WildfireSimulation simulation(config, static_cast<std::uint64_t>(scenario_index));
         ScenarioStatistics scenario_statistics;
 
 #if EMBER_ENABLE_CUDA
-        // 1. OBLIGATORIO: Generar relieve sintético, combustible y encender el foco inicial
-        simulation.initialize();
+        {
+            const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
+            const auto host_init_start = clock::now();
+            if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
+                simulation.initialize_empty();
+            else
+                simulation.initialize();
+            scenario_statistics.host_initialization_seconds =
+                std::chrono::duration<double>(clock::now() - host_init_start).count();
+        }
 
         auto& buffers = simulation.grid();
         std::size_t completed_steps = 0;
-        double kernel_time = 0.0;
+        CudaScenarioTimings cuda_timings;
 
         // 2. Ejecutar kernel en GPU y verificar éxito
         const bool success = run_scenario_cuda(
             config,
             scenario_index,
             buffers,
+            cuda_workspace,
             completed_steps,
-            kernel_time
+            cuda_timings
         );
 
         if (!success) {
-            std::cerr << "[Rank " << rank << "] Error ejecutando escenario " << scenario_index << " en CUDA.\n";
-            continue;
+            throw std::runtime_error("CUDA scenario failed on rank " + std::to_string(rank) +
+                                     ", scenario " + std::to_string(scenario_index));
         }
 
         // 3. Registrar métricas de la simulación
         scenario_statistics.scenario_id = scenario_index;
-        scenario_statistics.scenario_seed = config.seed + scenario_index;
+        scenario_statistics.scenario_seed = ember::scenario_seed(config.seed, scenario_index);
         scenario_statistics.steps_executed = completed_steps;
         scenario_statistics.termination = TerminationReason::MaxSteps;
-        scenario_statistics.simulation_seconds = kernel_time;
-        scenario_statistics.step_compute_seconds = kernel_time;
+        scenario_statistics.device_allocation_seconds = cuda_timings.allocation_seconds;
+        scenario_statistics.host_to_device_seconds = cuda_timings.host_to_device_seconds;
+        scenario_statistics.device_initialization_seconds = cuda_timings.device_initialization_seconds;
+        scenario_statistics.device_to_host_seconds = cuda_timings.device_to_host_seconds;
+        scenario_statistics.initialization_seconds = scenario_statistics.host_initialization_seconds +
+            cuda_timings.allocation_seconds + cuda_timings.host_to_device_seconds +
+            cuda_timings.device_initialization_seconds;
+        scenario_statistics.simulation_seconds = cuda_timings.kernel_seconds;
+        scenario_statistics.step_compute_seconds = cuda_timings.kernel_seconds;
         scenario_statistics.swap_seconds = 0.0;
         scenario_statistics.cell_updates = completed_steps * config.width * config.height;
+        scenario_statistics.mean_step_seconds = cuda_timings.kernel_seconds / completed_steps;
+        scenario_statistics.throughput_cell_updates_per_second =
+            cuda_timings.kernel_seconds > 0.0 ?
+                scenario_statistics.cell_updates / cuda_timings.kernel_seconds : 0.0;
 
         // Conteo de celdas quemadas
         const auto view = buffers.current_view();
@@ -184,9 +214,18 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
                 export_grid_ppm(output_directory / (stem + ".ppm"), grid, config.terrain.get());
             }
         }
+#if EMBER_ENABLE_CUDA
+        scenario_statistics.scenario_wall_seconds =
+            std::chrono::duration<double>(clock::now() - scenario_wall_start).count();
+        scenario_statistics.total_core_seconds = scenario_statistics.scenario_wall_seconds;
+#endif
         
         batch.scenario_results.push_back(scenario_statistics);
     }
+
+#if EMBER_ENABLE_CUDA
+    cuda_workspace.release(batch.cuda_release_seconds);
+#endif
 
 #if EMBER_ENABLE_MPI
     // Gather all scenario results from other ranks to the master node (Rank 0) for final aggregation and reporting.
@@ -237,6 +276,13 @@ const auto batch_wall_end = clock::now(); // <-- Fin cronómetro de pared
             const nvtx::ScopedRange statistics_range("batch.finalize_statistics", nvtx::green, 1U);
             finalize_batch_statistics(batch);
         }
+
+#if EMBER_ENABLE_CUDA
+        // Include one-time context startup and workspace release in the batch wall time.
+        batch.total_core_seconds = wall_clock_seconds;
+        batch.mean_scenario_seconds = batch.completed_scenarios > 0 ?
+            wall_clock_seconds / static_cast<double>(batch.completed_scenarios) : 0.0;
+#endif
 
         // On multi-node parallel execution, replace with the actual elapsed wall-clock time
         if (world_size > 1) {

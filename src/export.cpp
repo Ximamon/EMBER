@@ -130,7 +130,10 @@ void export_summary_csv(const std::filesystem::path& path, const BatchStatistics
               "total_core_seconds,throughput_cell_updates_per_second,mean_scenario_seconds,"
               "completed_scenarios,extinguished_scenarios,max_steps_scenarios,"
               "valid_cells,nodata_cells,non_combustible_cells,initially_combustible_cells,"
-              "burned_hectares,combustible_burned_percent,terrain_load_seconds\n";
+              "burned_hectares,combustible_burned_percent,terrain_load_seconds,"
+              "host_initialization_seconds,device_allocation_seconds,host_to_device_seconds,"
+              "device_initialization_seconds,device_to_host_seconds,scenario_wall_seconds,"
+              "cuda_startup_seconds,cuda_release_seconds\n";
 
     output << std::setprecision(30);
 
@@ -156,7 +159,13 @@ void export_summary_csv(const std::filesystem::path& path, const BatchStatistics
                << scenario.valid_cells << ',' << scenario.nodata_cells << ','
                << scenario.non_combustible_cells << ',' << scenario.initially_combustible_cells << ',';
         if (scenario.burned_hectares >= 0) output << scenario.burned_hectares;
-        output << ',' << scenario.combustible_burned_percent << ",\n";
+        output << ',' << scenario.combustible_burned_percent << ",,"
+               << scenario.host_initialization_seconds << ','
+               << scenario.device_allocation_seconds << ','
+               << scenario.host_to_device_seconds << ','
+               << scenario.device_initialization_seconds << ','
+               << scenario.device_to_host_seconds << ','
+               << scenario.scenario_wall_seconds << ",,\n";
     }
 
     output << "batch,,,,,,,"
@@ -172,7 +181,9 @@ void export_summary_csv(const std::filesystem::path& path, const BatchStatistics
            << statistics.mean_scenario_seconds << ','
            << statistics.completed_scenarios << ','
            << statistics.extinguished_scenarios << ','
-           << statistics.max_steps_scenarios << ",,,,,,," << statistics.terrain_load_seconds << '\n';
+           << statistics.max_steps_scenarios << ",,,,,,," << statistics.terrain_load_seconds
+           << ",,,,,,," << statistics.cuda_startup_seconds << ','
+           << statistics.cuda_release_seconds << '\n';
 
     if (!output) {
         throw std::runtime_error("failed while writing summary CSV: " + path.string());

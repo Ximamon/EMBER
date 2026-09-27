@@ -27,9 +27,11 @@ set(
 mark_as_advanced(CMAKE_CXX_FLAGS_PLAIN CMAKE_C_FLAGS_PLAIN CMAKE_EXE_LINKER_FLAGS_PLAIN)
 
 # Registrar "Plain" en la lista de tipos válidos para editores (VS Code, ccmake)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
-    "Debug" "Release" "RelWithDebInfo" "MinSizeRel" "Plain"
-)
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+      "Debug" "Release" "RelWithDebInfo" "MinSizeRel" "Plain"
+  )
+endif()
 
 
 # Compile config 
@@ -78,7 +80,9 @@ if(EMBER_ENABLE_CUDA)
         enable_language(CUDA)
         set(CMAKE_CUDA_STANDARD 17)
         set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-        set(CMAKE_CUDA_ARCHITECTURES 80) # sm_80 for NVIDIA A100 on Curiosity
+        if(NOT CMAKE_CUDA_ARCHITECTURES)
+            set(CMAKE_CUDA_ARCHITECTURES 80) # sm_80 for NVIDIA A100 on Curiosity
+        endif()
         message(STATUS "CUDA enabled: ${CMAKE_CUDA_COMPILER}")
     else()
         message(WARNING "CUDA requested but 'nvcc' not found. Disable CUDA.")

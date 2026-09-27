@@ -25,11 +25,15 @@ function(ember_configure_cuda TARGET_NAME)
         $<$<COMPILE_LANGUAGE:CUDA>:
             -O3
             --use_fast_math
-            -Xcompiler -Wall,-Wextra,-Wno-old-style-cast,-Wno-pedantic
         >
     )
+    if(NOT MSVC)
+        target_compile_options(${TARGET_NAME} PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-Wextra,-Wno-old-style-cast,-Wno-pedantic>
+        )
+    endif()
 
     set_target_properties(${TARGET_NAME} PROPERTIES
-        CUDA_ARCHITECTURES 80
+        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
     )
 endfunction()
