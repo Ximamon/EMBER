@@ -46,6 +46,13 @@ enum class ExportFormat {
     Both
 };
 
+/**
+ * @enum SyntheticInitBackend
+ * @brief Execution backend used to generate synthetic terrain inputs.
+ * - Cpu: Single-threaded host generation using stateless keyed hashing.
+ * - OpenMp: Multi-threaded host generation using OpenMP work-sharing loops.
+ * - Cuda: Direct on-device VRAM generation via initialize_synthetic_kernel.
+ */
 enum class SyntheticInitBackend { Cpu, OpenMp, Cuda };
 
 /**
