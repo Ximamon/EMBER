@@ -97,10 +97,13 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     // }
 #endif
 
+    // Initialize the batch statistics structure to accumulate results across all scenarios.
     BatchStatistics batch;
     batch.width = config.width;
     batch.height = config.height;
     batch.terrain_load_seconds = load_seconds;
+    
+    // If real terrain is used, print its properties and any specified ignition points to the console.
     if (config.terrain && rank == 0) {
         std::cout << "Terrain: EPSG:32631, " << config.terrain->cell_size_m << " m cells; load "
                   << load_seconds << " s\nUniform fuel: " << config.terrain_fuel
@@ -109,8 +112,15 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             std::cout << "Ignition: " << point.x << ',' << point.y << '\n';
         if (!config.output_directory.empty()) export_terrain_run(config);
     }
+
+    // Reserve space for scenario results to avoid reallocations during the batch run.
+    // Each scenario will append its statistics to this vector after completion.
     batch.scenario_results.reserve(config.scenarios);
+    // Convert the output directory string to a filesystem path for easier manipulation and validation.
     const std::filesystem::path output_directory(config.output_directory);
+    
+    // If using CUDA, allocate a workspace for GPU memory management. 
+    // This workspace will be reused across all scenarios to minimize allocation overhead.
 #if EMBER_ENABLE_CUDA
     CudaWorkspace cuda_workspace(checked_cell_count(config));
     if (!initialize_cuda_context(batch.cuda_startup_seconds))
@@ -124,9 +134,10 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             continue; // This scenario is assigned to a different MPI rank; skip it.
         }
 
+        // Generate the "ID" for the current scenario, which is used for logging and output file naming.
         const std::string scenario_range_name = "batch.scenario." + std::to_string(scenario_index);
-        const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U);
-#if EMBER_ENABLE_CUDA
+        const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U); // Create the NVTX range for the current scenario for profiling.
+#if EMBER_ENABLE_CUDA // In CUDA mode, we measure the wall-clock time for the entire scenario, including GPU execution and any host-side initialization.
         const auto scenario_wall_start = clock::now();
 #endif
 
@@ -134,23 +145,26 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         WildfireSimulation simulation(config, static_cast<std::uint64_t>(scenario_index));
         ScenarioStatistics scenario_statistics;
 
+        // CUDA execution path: If CUDA is enabled, we perform host-side initialization and then launch the GPU kernel for the simulation
 #if EMBER_ENABLE_CUDA
         {
+            // NVTX range for scenario initialization on the host (CPU)
+            //This includes setting up the grid and any necessary data structures before launching the GPU kernel
             const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
             const auto host_init_start = clock::now();
             if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
                 simulation.initialize_empty();
             else
                 simulation.initialize();
-            scenario_statistics.host_initialization_seconds =
-                std::chrono::duration<double>(clock::now() - host_init_start).count();
+            scenario_statistics.host_initialization_seconds = std::chrono::duration<double>(clock::now() - host_init_start).count();
         }
 
+        // Create the grid buffers for the simulation. These buffers will be used to store the state of each cell in the simulation grid
         auto& buffers = simulation.grid();
         std::size_t completed_steps = 0;
         CudaScenarioTimings cuda_timings;
 
-        // 2. Ejecutar kernel en GPU y verificar éxito
+        // Execute GPU CUDA Kernel
         const bool success = run_scenario_cuda(
             config,
             scenario_index,
@@ -160,12 +174,13 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             cuda_timings
         );
 
+        // If the CUDA kernel failed, throw an exception with details about the rank and scenario index for easier debugging
         if (!success) {
             throw std::runtime_error("CUDA scenario failed on rank " + std::to_string(rank) +
                                      ", scenario " + std::to_string(scenario_index));
         }
 
-        // 3. Registrar métricas de la simulación
+        // Gather metrics from the completed scenario and populate the ScenarioStatistics structure for reporting and analysis
         scenario_statistics.scenario_id = scenario_index;
         scenario_statistics.scenario_seed = ember::scenario_seed(config.seed, scenario_index);
         scenario_statistics.steps_executed = completed_steps;
@@ -186,38 +201,48 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             cuda_timings.kernel_seconds > 0.0 ?
                 scenario_statistics.cell_updates / cuda_timings.kernel_seconds : 0.0;
 
-        // Conteo de celdas quemadas
+        // Count burned cells by iterating through the current grid view and checking the state of each cell
         const auto view = buffers.current_view();
         std::size_t burned_count = 0;
+
         const std::size_t total_cells = config.width * config.height;
+
         for (std::size_t i = 0; i < total_cells; ++i) {
             if (view.state[i] == CellState::Burned || view.state[i] == CellState::Burning) {
                 ++burned_count;
             }
         }
+        
+        // Save the burned cell count and percentage to the scenario statistics for reporting
         scenario_statistics.burned_cells = burned_count;
         scenario_statistics.burned_percent =
             (static_cast<double>(burned_count) / static_cast<double>(total_cells)) * 100.0;
 
 #else
+        // Non-CUDA execution path: If CUDA is not enabled, we run the simulation entirely on the CPU
+        // Inside the run() method, the simulation will perform all necessary initialization and stepping on the CPU
         scenario_statistics = simulation.run();
 #endif
 
-        // If the export format is not None, export the final grid state to the specified format(s).
+        // Export the final grid state to the specified format(s).
         if (config.export_format != ExportFormat::None) {
             const nvtx::ScopedRange export_range("scenario.export_grid", nvtx::yellow, 2U);
             const auto stem = scenario_stem(static_cast<std::uint64_t>(scenario_index));
             const auto grid = static_cast<const GridBuffers&>(simulation.grid()).current_view();
 
+            // CSV export
             if (config.export_format == ExportFormat::Csv || config.export_format == ExportFormat::Both) {
                 export_grid_csv(output_directory / (stem + ".csv"), grid, config.terrain.get());
             }
 
+            // PPM export
             if (config.export_format == ExportFormat::Ppm || config.export_format == ExportFormat::Both) {
                 export_grid_ppm(output_directory / (stem + ".ppm"), grid, config.terrain.get());
             }
         }
+
 #if EMBER_ENABLE_CUDA
+        // End of scenario wall-clock timing for CUDA execution. This includes all host and device operations for the scenario
         scenario_statistics.scenario_wall_seconds =
             std::chrono::duration<double>(clock::now() - scenario_wall_start).count();
         scenario_statistics.total_core_seconds = scenario_statistics.scenario_wall_seconds;
@@ -226,10 +251,12 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         batch.scenario_results.push_back(scenario_statistics);
     }
 
+    // Release the CUDA workspace after all scenarios have been processed to free GPU memory and resources
 #if EMBER_ENABLE_CUDA
     cuda_workspace.release(batch.cuda_release_seconds);
 #endif
 
+// Gather scenario results from all MPI ranks to the master node (Rank 0) for final aggregation and reporting
 #if EMBER_ENABLE_MPI
     // Gather all scenario results from other ranks to the master node (Rank 0) for final aggregation and reporting.
     if (world_size > 1) {
@@ -270,7 +297,8 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     }
 #endif
 
-const auto batch_wall_end = clock::now(); // <-- Fin cronómetro de pared
+    // End of batch wall-clock timing
+    const auto batch_wall_end = clock::now();
     const double wall_clock_seconds =
         std::chrono::duration<double>(batch_wall_end - batch_wall_start).count();
 
