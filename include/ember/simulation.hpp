@@ -93,24 +93,49 @@ public:
     );
 
 private:
+    /// @brief Simulation configuration parameters.
     SimulationConfig config_;
+    /// @brief Unique scenario index within the batch.
     std::uint64_t scenario_id_{};
+    /// @brief Seed derived for this specific scenario.
     std::uint64_t scenario_seed_{};
+    /// @brief Double-buffered grid holding simulation layers.
     GridBuffers grid_;
+    /// @brief Precalculated X-component of wind vector.
     float wind_x_{};
+    /// @brief Precalculated Y-component of wind vector.
     float wind_y_{};
+    /// @brief Flag indicating if terrain and ignitions have been initialized.
     bool initialized_{};
 
+    /// @brief Accumulated time spent computing cellular stencil updates in seconds.
     double step_compute_seconds_{0.0};
+    /// @brief Accumulated time spent swapping ping-pong buffers in seconds.
     double swap_seconds_{0.0};
+    /// @brief Minimum observed step duration in seconds.
     double min_step_seconds_{0.0};
+    /// @brief Maximum observed step duration in seconds.
     double max_step_seconds_{0.0};
 
+    /// @brief Initializes grid layers from parsed real terrain raster data.
     void initialize_terrain();
+    /// @brief Generates procedural synthetic terrain layers using keyed hashing.
     void initialize_synthetic_terrain();
+    /// @brief Applies configured ignition points to ignite the fire.
     void apply_ignitions();
 
+    /// @brief Executes a single simulation step using standard scalar CPU logic.
+    /// @param step_index Current timestep index.
+    /// @return Number of cells currently burning.
     std::size_t step_scalar(std::size_t step_index);
+
+    /// @brief Evaluates state transitions and fire spread for an individual grid cell.
+    /// @param current Read-only view of current grid state.
+    /// @param next Mutable view of next grid state.
+    /// @param step_index Current timestep index.
+    /// @param row Cell row index.
+    /// @param column Cell column index.
+    /// @return 1 if cell remains or becomes burning, 0 otherwise.
     std::size_t step_cell(
         const ConstGridView& current,
         GridView next,
@@ -118,8 +143,18 @@ private:
         std::size_t row,
         std::size_t column) const;
 
+    /// @brief Executes a single simulation step using AVX2 SIMD vector instructions.
+    /// @param step_index Current timestep index.
+    /// @return Number of cells currently burning.
     std::size_t step_avx2(std::size_t step_index);
 
+    /// @brief Evaluates fire spread probability from a burning neighbor to a target cell.
+    /// @param current Read-only view of the grid.
+    /// @param target_index Linear index of the candidate unburned cell.
+    /// @param neighbor_index Linear index of the burning neighbor cell.
+    /// @param delta_x Relative X offset to neighbor (-1, 0, or 1).
+    /// @param delta_y Relative Y offset to neighbor (-1, 0, or 1).
+    /// @return Calculated ignition probability in [0, 1].
     float neighbor_probability(
         const ConstGridView& current,
         std::size_t target_index,

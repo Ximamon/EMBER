@@ -41,6 +41,9 @@ void validate_range(float minimum, float maximum, const char* name) {
 
 } // namespace
 
+/**
+ * @brief Computes total grid cell count with overflow safety validation.
+ */
 std::size_t checked_cell_count(const SimulationConfig& config) {
     if (config.width == 0 || config.height == 0) {
         throw std::invalid_argument("grid width and height must be greater than zero");
@@ -53,6 +56,9 @@ std::size_t checked_cell_count(const SimulationConfig& config) {
     return config.width * config.height;
 }
 
+/**
+ * @brief Validates simulation configuration bounds and backend requirements.
+ */
 void validate_config(const SimulationConfig& config) {
 #if !EMBER_ENABLE_CUDA
     if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)

@@ -23,13 +23,16 @@ namespace ember {
  * 
  * @param path The path to the output CSV file.
  * @param grid The grid data to export.
+ * @param terrain Optional pointer to terrain dataset providing GIS fuel codes and valid mask.
  */
 void export_grid_csv(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
+
 /**
  * @brief Exports the grid data to a PPM file.
  * 
  * @param path The path to the output PPM file.
  * @param grid The grid data to export.
+ * @param terrain Optional pointer to terrain dataset providing GIS valid mask for NODATA tinting.
  */
 void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
 /**

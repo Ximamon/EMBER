@@ -12,10 +12,10 @@ function(ember_configure_mpi TARGET_NAME)
             "MPI Enabled: ${MPI_CXX_COMPILER}"
         )
         
-        # Enlazar las bibliotecas MPI al target indicado
+        # Link MPI libraries to the specified target
         target_link_libraries(${TARGET_NAME} PUBLIC MPI::MPI_CXX)
         
-        # Definición para compilar bloques condicionales en C++
+        # Compile definition for conditional compilation in C++
         target_compile_definitions(${TARGET_NAME} PUBLIC EMBER_ENABLE_MPI=1)
     else()
         message(

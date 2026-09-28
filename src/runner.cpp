@@ -53,6 +53,9 @@ std::string scenario_stem(std::uint64_t scenario_id) {
 
 } // namespace
 
+/**
+ * @brief Executes a batch of simulation scenarios sequentially or distributed across MPI ranks.
+ */
 BatchStatistics run_batch(const SimulationConfig& input_config) {
     const nvtx::ScopedRange batch_range("batch.run", nvtx::purple, 0U);
 
@@ -119,7 +122,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     if (!initialize_cuda_context(batch.cuda_startup_seconds))
         throw std::runtime_error("CUDA context initialization failed");
 
-    // 1. Filtrar los escenarios que le tocan a este rango MPI
+    // 1. Filter scenarios assigned to this MPI rank
     std::vector<std::size_t> my_scenarios;
     for (std::size_t scenario_index = 0; scenario_index < config.scenarios; ++scenario_index) {
         if (scenario_index % static_cast<std::size_t>(world_size) == static_cast<std::size_t>(rank)) {
@@ -131,14 +134,14 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         std::unique_ptr<WildfireSimulation> current_sim = nullptr;
         double current_host_init_seconds = 0.0;
 
-        // Bucle del pipeline de ejecución
+        // Pipelined execution loop
         for (std::size_t i = 0; i < my_scenarios.size(); ++i) {
             const std::size_t scenario_index = my_scenarios[i];
             const std::string scenario_range_name = "batch.scenario." + std::to_string(scenario_index);
             const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U);
             const auto scenario_wall_start = clock::now();
 
-            // A. Fase de arranque (solo se inicializa en frío para el primer escenario)
+            // A. Cold start: allocate and initialize host buffers for the initial scenario
             if (i == 0) {
                 current_sim = std::make_unique<WildfireSimulation>(config, static_cast<std::uint64_t>(scenario_index));
                 const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
@@ -153,13 +156,13 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             CudaScenarioTimings cuda_timings;
             std::size_t completed_steps = 0;
 
-            // B. Encolar los kernels en GPU (retorna de inmediato a CPU)
+            // B. Enqueue simulation kernels on the GPU (asynchronous launch returns immediately to CPU)
             if (!launch_scenario_cuda(config, scenario_index, current_sim->grid(), cuda_workspace, cuda_timings)) {
                 throw std::runtime_error("CUDA scenario launch failed on rank " + std::to_string(rank) +
                                          ", scenario " + std::to_string(scenario_index));
             }
 
-            // C. MIENTRAS LA GPU TRABAJA: Inicializar en RAM el siguiente escenario (i + 1)
+            // C. CONCURRENT OVERLAP: initialize the next scenario (i + 1) in host RAM while the GPU computes scenario i
             std::unique_ptr<WildfireSimulation> next_sim = nullptr;
             double next_host_init_seconds = 0.0;
             if (i + 1 < my_scenarios.size()) {
@@ -174,13 +177,13 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
                 next_host_init_seconds = std::chrono::duration<double>(clock::now() - host_init_start).count();
             }
 
-            // D. Bloquear CPU hasta que la GPU finalice y descargar el resultado a RAM
+            // D. Block host CPU until GPU execution completes and download results to RAM
             if (!sync_and_download_scenario_cuda(config, current_sim->grid(), cuda_workspace, completed_steps, cuda_timings)) {
                 throw std::runtime_error("CUDA scenario sync failed on rank " + std::to_string(rank) +
                                          ", scenario " + std::to_string(scenario_index));
             }
 
-            // E. Recopilar métricas y estadísticas del escenario actual
+            // E. Collect scenario-level statistics and timing breakdown
             ScenarioStatistics scenario_statistics;
             scenario_statistics.scenario_id = scenario_index;
             scenario_statistics.scenario_seed = ember::scenario_seed(config.seed, scenario_index);
@@ -218,7 +221,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             scenario_statistics.burned_percent =
                 (static_cast<double>(burned_count) / static_cast<double>(total_cells)) * 100.0;
 
-            // F. Exportación de ficheros
+            // F. File export (CSV / PPM) if requested
             if (config.export_format != ExportFormat::None) {
                 const nvtx::ScopedRange export_range("scenario.export_grid", nvtx::yellow, 2U);
                 const auto stem = scenario_stem(static_cast<std::uint64_t>(scenario_index));
@@ -236,7 +239,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
             batch.scenario_results.push_back(scenario_statistics);
 
-            // G. El siguiente escenario pasa a ser el actual para la próxima iteración
+            // G. Advance next scenario to current for the subsequent iteration
             if (next_sim) {
                 current_sim = std::move(next_sim);
                 current_host_init_seconds = next_host_init_seconds;
@@ -247,7 +250,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     cuda_workspace.release(batch.cuda_release_seconds);
 
 #else
-    // Ruta estándar CPU (sin CUDA)
+    // Standard CPU execution path (without CUDA)
     for (std::size_t scenario_index = 0; scenario_index < config.scenarios; ++scenario_index) {
         if (scenario_index % static_cast<std::size_t>(world_size) != static_cast<std::size_t>(rank)) {
             continue;

@@ -50,6 +50,9 @@ std::uint64_t as_u64(std::size_t value) {
 
 } // namespace
 
+/**
+ * @brief Constructs a WildfireSimulation scenario instance and derives wind vectors.
+ */
 WildfireSimulation::WildfireSimulation(SimulationConfig config, std::uint64_t scenario_id)
     : config_(resolve_terrain_config(std::move(config))),
       scenario_id_(scenario_id),
@@ -60,6 +63,9 @@ WildfireSimulation::WildfireSimulation(SimulationConfig config, std::uint64_t sc
     wind_y_ = std::sin(radians);
 }
 
+/**
+ * @brief Allocates grid buffers, populates terrain layers, and applies ignitions.
+ */
 void WildfireSimulation::initialize() {
     const nvtx::ScopedRange initialize_range("simulation.initialize", nvtx::teal, 2U);
     step_compute_seconds_ = 0.0;
@@ -74,11 +80,17 @@ void WildfireSimulation::initialize() {
     initialized_ = true;
 }
 
+/**
+ * @brief Allocates grid buffers without generating host input fields (for direct GPU generation).
+ */
 void WildfireSimulation::initialize_empty() {
     grid_ = GridBuffers(config_.width, config_.height);
     initialized_ = true;
 }
 
+/**
+ * @brief Generates procedural synthetic terrain layers on the CPU using stateless keyed hashing.
+ */
 void WildfireSimulation::initialize_synthetic_terrain() {
     auto current = grid_.current_view();
     auto next = grid_.next_view();
@@ -113,6 +125,9 @@ void WildfireSimulation::initialize_synthetic_terrain() {
     for (std::size_t index = 0; index < count; ++index) initialize_cell(index);
 }
 
+/**
+ * @brief Maps parsed ESRI raster cells into grid fuel and state buffers.
+ */
 void WildfireSimulation::initialize_terrain() {
     const auto& terrain = *config_.terrain;
     auto current = grid_.current_view();
@@ -127,6 +142,9 @@ void WildfireSimulation::initialize_terrain() {
     }
 }
 
+/**
+ * @brief Sets initial burning states for configured or default ignition points.
+ */
 void WildfireSimulation::apply_ignitions() {
     auto current = grid_.current_view();
     auto next = grid_.next_view();
@@ -146,6 +164,9 @@ void WildfireSimulation::apply_ignitions() {
     }
 }
 
+/**
+ * @brief Computes Moore neighborhood fire ignition probability given environmental factors.
+ */
 float WildfireSimulation::neighbor_ignition_probability(
     const SimulationConfig& config,
     float target_fuel,
@@ -179,6 +200,9 @@ float WildfireSimulation::neighbor_ignition_probability(
                    moisture_factor * wind_factor * slope_factor * distance_factor);
 }
 
+/**
+ * @brief Internal method calculating fire spread probability from an active neighbor.
+ */
 float WildfireSimulation::neighbor_probability(
     const ConstGridView& current,
     std::size_t target_index,
@@ -205,6 +229,9 @@ float WildfireSimulation::neighbor_probability(
                    slope_factor * distance_factor);
 }
 
+/**
+ * @brief Advances the cellular automaton by one discrete timestep with profiling.
+ */
 std::size_t WildfireSimulation::step(std::size_t step_index) {
     if (!initialized_) {
         throw std::logic_error("simulation must be initialized before stepping");
@@ -256,6 +283,9 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
     return burning_next;
 }
 
+/**
+ * @brief Performs scalar row-by-row stencil evaluation across the grid.
+ */
 std::size_t WildfireSimulation::step_scalar(std::size_t step_index) {
     const ConstGridView current = static_cast<const GridBuffers&>(grid_).current_view();
     auto next = grid_.next_view();
@@ -269,6 +299,9 @@ std::size_t WildfireSimulation::step_scalar(std::size_t step_index) {
     return burning_next;
 }
 
+/**
+ * @brief Evaluates state transitions and fire spread for an individual grid cell.
+ */
 std::size_t WildfireSimulation::step_cell(
     const ConstGridView& current,
     GridView next,
@@ -316,7 +349,7 @@ std::size_t WildfireSimulation::step_cell(
         }
     }
 
-    // If any neighbor isnt burning, we can skip the ignition probability calculation for this cell.
+    // If no neighbor is burning, we can skip the ignition probability calculation for this cell.
     if (probability_not_ignited >= 1.0) {
         next.state[index] = CellState::Unburned;
         return 0;
@@ -329,6 +362,9 @@ std::size_t WildfireSimulation::step_cell(
     return next.state[index] == CellState::Burning ? 1 : 0;
 }
 
+/**
+ * @brief Executes the simulation scenario until burnout or max steps, compiling statistics.
+ */
 ScenarioStatistics WildfireSimulation::run() {
     const nvtx::ScopedRange scenario_range("simulation.run", nvtx::blue, 1U);
     using clock = std::chrono::steady_clock;
@@ -424,6 +460,9 @@ ScenarioStatistics WildfireSimulation::run() {
     return statistics;
 }
 
+/**
+ * @brief Standalone helper creating a WildfireSimulation instance and executing it.
+ */
 ScenarioStatistics run_scenario(const SimulationConfig& config, std::uint64_t scenario_id) {
     WildfireSimulation simulation(config, scenario_id);
     return simulation.run();

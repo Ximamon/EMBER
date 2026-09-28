@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1              # Reserve 1 GPU NVIDIA A100-SXM4
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 #SBATCH --output=cuda_%j.out
 #SBATCH --error=cuda_%j.err
 
@@ -13,10 +13,9 @@
 module load gcc/14.2.0
 module load openmpi/gcc/64/5.0.7
 module load cuda12.8/toolkit/12.8.1
-module load Nsight-Systems/2026.2.1
 
 echo "=================================================="
-echo "CUDA KERNEL TEST ON NVIDIA A100"
+echo "CURIOSITY - SINGLE-GPU CUDA BENCHMARK (NVIDIA A100)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $(hostname)"
 echo "Date: $(date)"
@@ -25,26 +24,19 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/results_cuda_nsys/
+mkdir -p results/benchmarking/cuda/
 
-nsys profile \
-    --trace=cuda,nvtx,osrt \
-    --sample=process-tree \
-    --backtrace=dwarf \
-    --cuda-memory-usage=true \
-    --force-overwrite=true \
-    -o results/results_cuda_nsys/ember_cuda_profile \
 ./build/ember \
-    --width 1024 \
-    --height 1024 \
-    --steps 1024 \
-    --scenarios 20 \
+    --width 2048 \
+    --height 2048 \
+    --steps 2048 \
+    --scenarios 80 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/results_cuda_nsys/
+    --output results/benchmarking/cuda/
 
 echo "=================================================="
 echo "Simulation completed successfully on NVIDIA A100 GPU."

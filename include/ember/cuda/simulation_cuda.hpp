@@ -86,16 +86,24 @@ private:
     friend bool sync_and_download_scenario_cuda(const SimulationConfig&, GridBuffers&,
                                                 CudaWorkspace&, std::size_t&, CudaScenarioTimings&);
 
+    /// @brief Number of grid cells managed by this device workspace.
     std::size_t cell_count_{};
+    /// @brief Device pointers for double-buffered cell states.
     CellState *state_curr_{}, *state_next_{};
+    /// @brief Device pointers for double-buffered fuel values.
     float *fuel_curr_{}, *fuel_next_{};
+    /// @brief Device pointers for static terrain elevation, moisture, and vegetation layers.
     float *elevation_{}, *moisture_{}, *vegetation_{};
+    /// @brief Dynamically allocated device array holding ignition cell indices.
     std::uint64_t* ignition_indices_{};
+    /// @brief Allocated capacity of the ignition index device buffer.
     std::size_t ignition_capacity_{};
 
-    // Tracking active buffers after ping-pong swaps & kernel execution start time
+    /// @brief Tracks the active state buffer pointer where final simulation results reside after ping-pong swaps.
     CellState* result_state_curr_{};
+    /// @brief Tracks the active fuel buffer pointer where final simulation results reside after ping-pong swaps.
     float* result_fuel_curr_{};
+    /// @brief Timestamp recorded immediately before enqueuing simulation stencil timesteps on the GPU.
     std::chrono::steady_clock::time_point kernel_start_time_{};
 };
 
@@ -113,8 +121,17 @@ bool initialize_cuda_context(double& seconds);
 bool check_cuda_device();
 
 /**
- * @brief Asynchronously enqueues inputs (H2D) and dispatches all simulation kernels to GPU.
- * Returns immediately to allow CPU to perform host initialization for the next scenario.
+ * @brief Asynchronously enqueues inputs (H2D) and dispatches all simulation kernels to the GPU.
+ * 
+ * Returns immediately without blocking the host CPU, enabling concurrent CPU initialization
+ * of the next scenario while the GPU executes simulation timesteps.
+ * 
+ * @param config Simulation configuration parameters.
+ * @param scenario_id Unique identifier for the scenario.
+ * @param buffers Host grid buffers providing views for input data.
+ * @param workspace Persistent VRAM workspace for GPU memory reuse.
+ * @param[out] timings Timing statistics populated with allocation and upload durations.
+ * @return true if asynchronous launch succeeded, false on any CUDA error.
  */
 bool launch_scenario_cuda(
     const SimulationConfig& config,
@@ -126,6 +143,15 @@ bool launch_scenario_cuda(
 
 /**
  * @brief Blocks host CPU until GPU execution completes (cudaDeviceSynchronize) and downloads results (D2H).
+ * 
+ * Computes elapsed kernel execution time and transfers final cell states and fuel back to host memory.
+ * 
+ * @param config Simulation configuration parameters.
+ * @param buffers Host grid buffers to receive downloaded simulation results.
+ * @param workspace Persistent VRAM workspace containing the final device buffers.
+ * @param[out] completed_steps Number of simulation steps completed.
+ * @param[out] timings Timing statistics populated with kernel and download durations.
+ * @return true if synchronization and download succeeded, false on any CUDA error.
  */
 bool sync_and_download_scenario_cuda(
     const SimulationConfig& config,
@@ -136,7 +162,17 @@ bool sync_and_download_scenario_cuda(
 );
 
 /**
- * @brief Monolithic wrapper preserving backward compatibility.
+ * @brief Monolithic synchronous wrapper preserving backward compatibility.
+ * 
+ * Combines `launch_scenario_cuda` and `sync_and_download_scenario_cuda` in a single blocking call.
+ * 
+ * @param config Simulation configuration parameters.
+ * @param scenario_id Unique identifier for the scenario.
+ * @param buffers Host grid buffers providing views and receiving simulation results.
+ * @param workspace Persistent VRAM workspace for GPU memory reuse.
+ * @param[out] completed_steps Number of simulation steps completed.
+ * @param[out] timings Deserialized performance phase timings.
+ * @return true if scenario executed successfully, false on any CUDA error.
  */
 bool run_scenario_cuda(
     const SimulationConfig& config,

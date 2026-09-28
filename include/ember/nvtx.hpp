@@ -96,6 +96,9 @@ constexpr std::uint32_t teal   = 0;
  */
 class ScopedRange {
 public:
+    /**
+     * @brief Constructs a no-op profiling range when NVTX profiling is disabled.
+     */
     explicit ScopedRange(const char* /*name*/, std::uint32_t /*color*/ = 0, std::uint32_t /*category*/ = 0) noexcept {}
     ~ScopedRange() = default;
 

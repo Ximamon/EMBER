@@ -111,6 +111,10 @@ namespace random_tag {
     constexpr std::uint64_t spread = 0x53505244ULL;
 } // namespace random_tag
 
+/**
+ * @brief Runs an isolated micro-benchmark evaluating stateless RNG hashing and uniform drawing throughput.
+ * @param iters Number of hashing and drawing iterations to benchmark.
+ */
 inline void run_rng_benchmark(std::size_t iters = 100'000'000) {
     using clock = std::chrono::high_resolution_clock;
     
@@ -125,7 +129,7 @@ inline void run_rng_benchmark(std::size_t iters = 100'000'000) {
     // ---------------------------------------------------------
     // TEST 1: 64 bits of keyed_hash only (mix64 + hash_combine)
     // ---------------------------------------------------------
-    volatile std::uint64_t hash_sink = 0; // volatile evita que el compilador elimine el bucle (-O3)
+    volatile std::uint64_t hash_sink = 0; // volatile prevents the compiler from optimizing out the loop (-O3)
     std::uint64_t accum_hash = 0;
 
     const auto start_hash = clock::now();

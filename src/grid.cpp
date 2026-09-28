@@ -14,6 +14,9 @@
 
 namespace ember {
 
+/**
+ * @brief Constructs grid buffers and allocates underlying storage vectors.
+ */
 GridBuffers::GridBuffers(std::size_t width, std::size_t height)
     : width_(width), height_(height), current_index_(0) {
     
@@ -42,11 +45,17 @@ GridBuffers::GridBuffers(std::size_t width, std::size_t height)
     elevation_.resize(count, 0.0F);
 }
 
+/**
+ * @brief Retrieves a mutable view of the active simulation buffers.
+ */
 GridView GridBuffers::current_view() noexcept {
     return {width_, height_, states_[current_index_].data(), fuels_[current_index_].data(),
             moisture_.data(), vegetation_.data(), elevation_.data()};
 }
 
+/**
+ * @brief Retrieves a mutable view of the target ping-pong buffers for the next timestep.
+ */
 GridView GridBuffers::next_view() noexcept {
     // Fast mathematical trick to alternate between index 0 and 1 without using an 'if' branch
     const auto next_index = 1U - current_index_;
@@ -54,16 +63,25 @@ GridView GridBuffers::next_view() noexcept {
             moisture_.data(), vegetation_.data(), elevation_.data()};
 }
 
+/**
+ * @brief Retrieves a read-only view of the active simulation buffers.
+ */
 ConstGridView GridBuffers::current_view() const noexcept {
     return {width_, height_, states_[current_index_].data(), fuels_[current_index_].data(),
             moisture_.data(), vegetation_.data(), elevation_.data()};
 }
 
+/**
+ * @brief Alternates the active ping-pong double buffer index.
+ */
 void GridBuffers::swap_buffers() noexcept {
     // At the end of the tick, the "next" buffer becomes the "current" buffer
     current_index_ = 1U - current_index_;
 }
 
+/**
+ * @brief Converts a CellState enum value to its human-readable string representation.
+ */
 const char* to_string(CellState state) noexcept {
     // Direct conversion for logging and result export
     switch (state) {

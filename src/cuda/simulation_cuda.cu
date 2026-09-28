@@ -349,6 +349,9 @@ namespace ember {
     // CONTROLLER AND VRAM MANAGER (HOST RUNNER)
     // ============================================================================
 
+    /**
+     * @brief Queries and logs properties of available CUDA GPU devices.
+     */
     bool check_cuda_device() {
         int device_count = 0;
         cudaError_t err = cudaGetDeviceCount(&device_count);
@@ -365,11 +368,14 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Initializes the CUDA driver runtime context and binds the process to a device.
+     */
     bool initialize_cuda_context(double& seconds) {
         const nvtx::ScopedRange range("cuda.startup", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
         
-        // Assing GPU based on local rank to avoid contention in multi-GPU nodes
+        // Assign GPU based on local rank to avoid contention in multi-GPU nodes
         int device_count = 0;
         cudaGetDeviceCount(&device_count);
         if (device_count > 0) {
@@ -390,11 +396,17 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Destructor. Automatically deallocates all device memory buffers.
+     */
     CudaWorkspace::~CudaWorkspace() noexcept {
         double ignored = 0.0;
         release(ignored);
     }
 
+    /**
+     * @brief Allocates persistent VRAM buffers if not already allocated.
+     */
     bool CudaWorkspace::allocate(double& seconds) {
         seconds = 0.0;
         if (state_curr_) return true;
@@ -423,6 +435,9 @@ namespace ember {
         return ok;
     }
 
+    /**
+     * @brief Releases all allocated VRAM buffers and resets pointers to nullptr.
+     */
     void CudaWorkspace::release(double& seconds) noexcept {
         const nvtx::ScopedRange range("cuda.free", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
@@ -441,6 +456,9 @@ namespace ember {
     // PIPELINED ASYNCHRONOUS LAUNCH & SYNCHRONIZATION
     // ============================================================================
 
+    /**
+     * @brief Asynchronously enqueues inputs and launches stencil kernels on the GPU.
+     */
     bool launch_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,
@@ -583,13 +601,16 @@ namespace ember {
             }
         }
 
-        // Guardamos los punteros finales donde quedó el último estado
+        // Save final device pointers holding the converged or final simulation state
         workspace.result_state_curr_ = d_state_curr;
         workspace.result_fuel_curr_ = d_fuel_curr;
 
         return true;
     }
 
+    /**
+     * @brief Synchronizes GPU execution, measures kernel duration, and downloads results to host memory.
+     */
     bool sync_and_download_scenario_cuda(
         const SimulationConfig& config,
         GridBuffers& buffers,
@@ -601,7 +622,7 @@ namespace ember {
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
-        // Bloqueo y espera de la CPU a que la GPU termine
+        // Block host CPU until all enqueued GPU kernels finish
         {
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
             CUDA_CHECK(cudaDeviceSynchronize());
@@ -629,6 +650,9 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Synchronous composite wrapper combining asynchronous launch, device synchronization, and D2H download.
+     */
     bool run_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,

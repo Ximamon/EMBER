@@ -17,6 +17,7 @@
 #include <vector>
 
 namespace ember {
+/// @brief Forward declaration of TerrainData geographic raster container.
 struct TerrainData;
 
 /**

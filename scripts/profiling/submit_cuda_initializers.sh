@@ -42,7 +42,7 @@ else
     cmake --build "$report_dir/baseline_build" -j 8
     baseline_executable="$(pwd)/$report_dir/baseline_build/ember"
 fi
-OMP_NUM_THREADS=8 python3 scripts/compare_cuda_initializers.py \
+OMP_NUM_THREADS=8 python3 scripts/profiling/compare_cuda_initializers.py \
     --executable "$executable" \
     --baseline-executable "$baseline_executable" --output "$report_dir"
 selected_mode=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["workloads"]["a100"]["selected"])' \

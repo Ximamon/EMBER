@@ -4,36 +4,34 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=00:45:00
+#SBATCH --time=02:00:00
 #SBATCH --output=baseline_%j.out
 #SBATCH --error=baseline_%j.err
 #SBATCH --chdir=/home/sb1user/EMBER
 
-# Entrar explícitamente a la raíz del proyecto
 cd /home/sb1user/EMBER
 
 echo "=================================================="
-echo "SANTABARBARA1 - MEDIDA BASELINE SECUENCIAL"
+echo "SANTABARBARA1 - SEQUENTIAL CPU BASELINE BENCHMARK"
 echo "Job ID: $SLURM_JOB_ID"
-echo "Nodo de ejecución: $(hostname)"
-echo "Directorio de trabajo: $(pwd)"
-echo "Fecha: $(date)"
+echo "Node: $(hostname)"
+echo "Working directory: $(pwd)"
+echo "Date: $(date)"
 echo "=================================================="
 
-# Crear la carpeta de resultados si no existe
-mkdir -p results/results_base_server
+mkdir -p results/benchmarking/santabarbara1/
 
-# Ejecutar el binario con ruta absoluta o relativa a la raíz
 ./build/ember \
-    --width 1024 \
-    --height 1024 \
-    --steps 1024 \
-    --scenarios 20 \
+    --width 2048 \
+    --height 2048 \
+    --steps 2048 \
+    --scenarios 80 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
     --wind-direction 45 \
-    --output results/results_server/ \
+    --export none \
+    --output results/benchmarking/santabarbara1/
 
 echo "=================================================="
-echo "Simulación finalizada con éxito."
+echo "Simulation completed successfully on Santa Barbara 1."

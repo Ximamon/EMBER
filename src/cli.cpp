@@ -122,6 +122,12 @@ ExportFormat parse_export_format(const std::string& text) {
     throw std::invalid_argument("--export must be one of: none, csv, ppm, both");
 }
 
+/**
+ * @brief Parses the synthetic terrain initialization backend from a string.
+ * @param text Backend name ("cpu", "openmp", or "gpu").
+ * @return The corresponding SyntheticInitBackend enum value.
+ * @throws std::invalid_argument If the text does not match a recognized backend.
+ */
 SyntheticInitBackend parse_init_backend(const std::string& text) {
     if (text == "cpu") return SyntheticInitBackend::Cpu;
     if (text == "openmp") return SyntheticInitBackend::OpenMp;
@@ -131,6 +137,9 @@ SyntheticInitBackend parse_init_backend(const std::string& text) {
 
 } // namespace
 
+/**
+ * @brief Parses command-line arguments and populates CliOptions.
+ */
 CliOptions parse_cli(int argc, const char* const argv[]) {
     // We implement a custom, lightweight CLI parser to keep EMBER dependency-free 
     // (avoiding heavy libraries like Boost.Program_options or CLI11).
@@ -186,6 +195,9 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
     return options;
 }
 
+/**
+ * @brief Prints formatted CLI usage and available options to the output stream.
+ */
 void print_help(std::ostream& output) {
     output <<
         "EMBER - stochastic wildfire simulator\n\n"
