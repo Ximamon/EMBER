@@ -59,7 +59,10 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     {
         const nvtx::ScopedRange terrain_range("batch.resolve_terrain", nvtx::teal, 1U);
         const auto load_start = std::chrono::steady_clock::now();
+
         config = resolve_terrain_config(input_config);
+        
+        // If the terrain was loaded from a file, measure the time taken to load it.
         load_seconds = (!input_config.terrain && config.terrain) ?
             std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
     }

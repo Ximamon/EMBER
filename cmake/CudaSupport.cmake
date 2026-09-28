@@ -34,6 +34,6 @@ function(ember_configure_cuda TARGET_NAME)
     endif()
 
     set_target_properties(${TARGET_NAME} PROPERTIES
-        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
+        CUDA_ARCHITECTURES 80
     )
 endfunction()

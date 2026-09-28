@@ -2,7 +2,7 @@
  * @file main.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Main entry point for the EMBER fire simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -26,6 +26,8 @@ namespace nvtx = ember::nvtx;
 
 int main(int argc, const char* argv[]) {
 
+    // MPI Initialization: If MPI is enabled, initialize the MPI environment and determine the rank of the current process. 
+    // The rank is used to control output and ensure that only the master process (rank 0) handles user interaction and reporting.
     int rank = 0;
 #if EMBER_ENABLE_MPI
     int world_size = 1;
@@ -48,6 +50,7 @@ int main(int argc, const char* argv[]) {
     }
 
     for (int i = 1; i < argc; ++i) {
+        // Running the RNG benchmark
         if (std::strcmp(argv[i], "--benchmark-rng") == 0) {
             if (rank == 0) {
                 const nvtx::ScopedRange rng_range("app.benchmark_rng", nvtx::orange, 0U);
@@ -84,6 +87,7 @@ int main(int argc, const char* argv[]) {
         // Execute the full simulation batch. This is a blocking operation that processes all scenarios sequentially.
         const auto statistics = ember::run_batch(options.config);
         
+        // Report consolidated metrics to the terminal
         // Only Rank 0 reports the consolidated metrics to the terminal
         if (rank == 0) {
             const nvtx::ScopedRange print_range("app.print_stdout", nvtx::green, 0U);
