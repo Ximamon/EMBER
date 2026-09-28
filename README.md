@@ -107,6 +107,7 @@ separate from the scalar baseline.
 - [Simplified propagation model](docs/model.md)
 - [CUDA readiness notes](docs/cuda-readiness.md)
 - [CUDA initialization experiment](docs/cuda-initialization.md)
+- [Fire spread model research: physical vs. normalized empirical](docs/fire-models-research.md)
 
 To generate and view the HTML API documentation locally using Doxygen:
 
