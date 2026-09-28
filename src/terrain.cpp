@@ -91,6 +91,8 @@ SimulationConfig resolve_terrain_config(SimulationConfig config) {
 #if EMBER_ENABLE_CUDA
     if (!config.terrain_path.empty() || config.terrain)
         throw std::invalid_argument("real terrain requires a CPU build: EMBER_ENABLE_CUDA=OFF");
+    if (config.spread_model == SpreadModel::Rothermel)
+        throw std::invalid_argument("the Rothermel spread model requires a CPU build: EMBER_ENABLE_CUDA=OFF");
 #endif
     if (!config.terrain && !config.terrain_path.empty()) config.terrain = load_terrain(config.terrain_path);
     if (config.terrain) {

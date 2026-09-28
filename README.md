@@ -77,6 +77,18 @@ Use `./build/ember --help` for every option. `--ignition X,Y` may be repeated; w
 
 Wind direction is where the wind blows toward: 0 degrees is east and 90 degrees is north. Coordinates use `(x,y)` with `(0,0)` in the upper-left grid cell.
 
+## Rothermel spread model (experimental, CPU-only)
+
+An alternative to the default empirical model: a physical rate of spread (Rothermel, 1972) driving
+a per-cell burned-fraction accumulator instead of a per-step random draw.
+
+```sh
+./build/ember --spread-model rothermel --wind-speed 4 --time-step 60 --width 128 --height 128
+```
+
+See [docs/rothermel-model.md](docs/rothermel-model.md) for the equations, the fuel parameter
+placeholders, and what is deliberately left out of this first version.
+
 ## Metrics
 
 Initialization and simulation are timed separately with `std::chrono::steady_clock`. Export and CLI work are excluded. One cell update means one cell visited during one executed time step:
@@ -108,6 +120,7 @@ separate from the scalar baseline.
 - [CUDA readiness notes](docs/cuda-readiness.md)
 - [CUDA initialization experiment](docs/cuda-initialization.md)
 - [Fire spread model research: physical vs. normalized empirical](docs/fire-models-research.md)
+- [Rothermel propagation model (experimental)](docs/rothermel-model.md)
 
 To generate and view the HTML API documentation locally using Doxygen:
 

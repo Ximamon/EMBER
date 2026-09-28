@@ -3,7 +3,9 @@ add_library(
     cli.cpp
     config.cpp
     export.cpp
+    fuel_model.cpp
     grid.cpp
+    rothermel.cpp
     terrain.cpp
     runner.cpp
     simulation.cpp

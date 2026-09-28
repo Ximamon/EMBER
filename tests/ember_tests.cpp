@@ -1,5 +1,7 @@
 #include "ember/cli.hpp"
 #include "ember/export.hpp"
+#include "ember/fuel_model.hpp"
+#include "ember/rothermel.hpp"
 #include "ember/runner.hpp"
 #include "ember/simulation.hpp"
 
@@ -244,6 +246,88 @@ void test_exports() {
     std::filesystem::remove_all(directory);
 }
 
+void test_rothermel_physics() {
+    CHECK(ember::fuel_class_for_code(102) == ember::FuelClass::Grass);
+    CHECK(ember::fuel_class_for_code(145) == ember::FuelClass::Shrub);
+    CHECK(ember::fuel_class_for_code(163) == ember::FuelClass::TimberUnderstory);
+    CHECK(ember::fuel_class_for_code(183) == ember::FuelClass::TimberLitter);
+    CHECK(ember::fuel_class_for_code(93) == ember::FuelClass::NonBurnable);
+
+    const auto fuel = ember::fuel_model_params(ember::FuelClass::Shrub);
+    const float dry = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, 0.0F);
+    const float wet = ember::rothermel_spread_rate_m_s(fuel, 0.15F, 0.0F, 0.0F);
+    CHECK(dry > 0.0F);
+    CHECK(dry > wet);
+
+    const float calm = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, 0.0F);
+    const float windy = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 2.0F, 0.0F);
+    CHECK(windy > calm);
+
+    const float flat = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, 0.0F);
+    const float uphill = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, 0.3F);
+    const float downhill = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, -0.3F);
+    CHECK(uphill > flat);
+    CHECK(flat > downhill);
+
+    const auto inert = ember::fuel_model_params(ember::FuelClass::NonBurnable);
+    CHECK(ember::rothermel_spread_rate_m_s(inert, 0.1F, 5.0F, 0.5F) == 0.0F);
+}
+
+#if !EMBER_ENABLE_CUDA
+// The Rothermel path is CPU-only for now (see docs/rothermel-model.md); resolve_terrain_config
+// rejects it under EMBER_ENABLE_CUDA the same way it already rejects real terrain.
+void test_rothermel_gradual_ignition() {
+    const auto fuel = ember::fuel_model_params(ember::FuelClass::Grass);
+    const float rate = ember::rothermel_spread_rate_m_s(fuel, 0.02F, 0.0F, 0.0F);
+    CHECK(rate > 0.0F);
+
+    auto config = small_config(3, 1);
+    config.spread_model = ember::SpreadModel::Rothermel;
+    config.ignitions = {{0, 0}};
+    config.min_moisture = 0.02F;
+    config.max_moisture = 0.02F;
+    config.min_elevation = 0.0F;
+    config.max_elevation = 0.0F;
+    config.synthetic_fuel_class = ember::FuelClass::Grass;
+    config.rothermel_cell_size_m = 10.0F;
+    // Choose the step duration so a single burning neighbor needs exactly four steps to
+    // cross burn_fraction = 1, directly exercising the accumulate-and-carry-over behavior
+    // the Rothermel path adds in place of the empirical model's single-step random draw.
+    config.rothermel_time_step_s = config.rothermel_cell_size_m / rate / 4.0F;
+    config.max_steps = 10;
+    ember::WildfireSimulation simulation(config, 0);
+    simulation.initialize();
+    // Ignition fuel is otherwise a random draw from [min_fuel, max_fuel]; pin it well above
+    // burn_rate * max_steps so the ignition cell cannot burn out mid-test and starve index 1.
+    simulation.grid().current_view().fuel[0] = 100.0F;
+
+    for (std::size_t step = 0; step < 3; ++step) {
+        simulation.step(step);
+        const auto result = static_cast<const ember::GridBuffers&>(simulation.grid()).current_view();
+        CHECK(result.state[1] == ember::CellState::Unburned);
+        const float expected = static_cast<float>(step + 1) * 0.25F;
+        CHECK(std::abs(result.burn_fraction[1] - expected) < 0.01F);
+    }
+    simulation.step(3);
+    const auto result = static_cast<const ember::GridBuffers&>(simulation.grid()).current_view();
+    CHECK(result.state[1] == ember::CellState::Burning);
+}
+#endif
+
+void test_rothermel_cli() {
+    const char* arguments[] = {
+        "ember", "--spread-model", "rothermel", "--wind-speed", "5",
+        "--time-step", "30", "--min-spread-rate", "0.01",
+        "--rothermel-cell-size", "25", "--synthetic-fuel-class", "timber-litter"};
+    const auto options = ember::parse_cli(13, arguments);
+    CHECK(options.config.spread_model == ember::SpreadModel::Rothermel);
+    CHECK(options.config.wind_speed_m_s == 5.0F);
+    CHECK(options.config.rothermel_time_step_s == 30.0F);
+    CHECK(options.config.min_spread_rate_m_s == 0.01F);
+    CHECK(options.config.rothermel_cell_size_m == 25.0F);
+    CHECK(options.config.synthetic_fuel_class == ember::FuelClass::TimberLitter);
+}
+
 } // namespace
 
 int main() {
@@ -261,6 +345,11 @@ int main() {
         {"batch equivalence", test_batch_equivalence},
         {"validation and CLI", test_validation_and_cli},
         {"exports", test_exports},
+        {"Rothermel physics", test_rothermel_physics},
+#if !EMBER_ENABLE_CUDA
+        {"Rothermel gradual ignition", test_rothermel_gradual_ignition},
+#endif
+        {"Rothermel CLI", test_rothermel_cli},
     };
 
     std::size_t failures = 0;

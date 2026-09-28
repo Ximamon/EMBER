@@ -125,6 +125,23 @@ private:
         std::size_t neighbor_index,
         int delta_x,
         int delta_y) const;
+
+    // Rothermel spread model path (SpreadModel::Rothermel). Parallels step_scalar/
+    // step_cell/neighbor_probability above but is deterministic (no random draw) and
+    // accumulates a per-cell burned fraction instead of drawing against a probability.
+    // See docs/rothermel-model.md.
+    std::size_t step_scalar_rothermel();
+    std::size_t step_cell_rothermel(
+        const ConstGridView& current,
+        GridView next,
+        std::size_t row,
+        std::size_t column) const;
+    float rothermel_neighbor_rate(
+        const ConstGridView& current,
+        std::size_t target_index,
+        std::size_t neighbor_index,
+        int delta_x,
+        int delta_y) const;
 };
 
 /**

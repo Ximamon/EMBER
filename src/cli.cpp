@@ -129,6 +129,31 @@ SyntheticInitBackend parse_init_backend(const std::string& text) {
     throw std::invalid_argument("--cuda-init must be one of: cpu, openmp, gpu");
 }
 
+/**
+ * @brief Parses the spread model from a string.
+ * @param text The string to parse (e.g., "empirical", "rothermel").
+ * @return The parsed SpreadModel enum.
+ */
+SpreadModel parse_spread_model(const std::string& text) {
+    if (text == "empirical") return SpreadModel::Empirical;
+    if (text == "rothermel") return SpreadModel::Rothermel;
+    throw std::invalid_argument("--spread-model must be one of: empirical, rothermel");
+}
+
+/**
+ * @brief Parses a Rothermel fuel family from a string.
+ * @param text The string to parse (e.g., "grass", "shrub").
+ * @return The parsed FuelClass enum.
+ */
+FuelClass parse_fuel_class(const std::string& text) {
+    if (text == "grass") return FuelClass::Grass;
+    if (text == "shrub") return FuelClass::Shrub;
+    if (text == "timber-understory") return FuelClass::TimberUnderstory;
+    if (text == "timber-litter") return FuelClass::TimberLitter;
+    throw std::invalid_argument(
+        "--synthetic-fuel-class must be one of: grass, shrub, timber-understory, timber-litter");
+}
+
 } // namespace
 
 CliOptions parse_cli(int argc, const char* const argv[]) {
@@ -170,6 +195,18 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
             options.config.base_spread = parse_float(require_value(index, argc, argv, option), option);
         } else if (option == "--burn-rate") {
             options.config.burn_rate = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--spread-model") {
+            options.config.spread_model = parse_spread_model(require_value(index, argc, argv, option));
+        } else if (option == "--wind-speed") {
+            options.config.wind_speed_m_s = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--time-step") {
+            options.config.rothermel_time_step_s = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--min-spread-rate") {
+            options.config.min_spread_rate_m_s = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--rothermel-cell-size") {
+            options.config.rothermel_cell_size_m = parse_float(require_value(index, argc, argv, option), option);
+        } else if (option == "--synthetic-fuel-class") {
+            options.config.synthetic_fuel_class = parse_fuel_class(require_value(index, argc, argv, option));
         } else if (option == "--ignition") {
             options.config.ignitions.push_back(parse_ignition(require_value(index, argc, argv, option)));
         } else if (option == "--output") {
@@ -205,6 +242,12 @@ void print_help(std::ostream& output) {
         "  --wind-strength X         Wind strength in [0,1] (default: 0.4)\n"
         "  --base-spread X           Base spread probability in [0,1] (default: 0.25)\n"
         "  --burn-rate X             Fuel consumed per step in (0,1] (default: 0.2)\n"
+        "  --spread-model MODEL      empirical or rothermel (default: empirical)\n"
+        "  --wind-speed X            Real wind speed in m/s, Rothermel only (default: 0)\n"
+        "  --time-step X             Simulated seconds per step, Rothermel only (default: 60)\n"
+        "  --min-spread-rate X       Extinction threshold in m/s, Rothermel only (default: 0.0017)\n"
+        "  --rothermel-cell-size X   Cell size in meters on synthetic grids, Rothermel only (default: 10)\n"
+        "  --synthetic-fuel-class C  grass, shrub, timber-understory, or timber-litter (default: shrub)\n"
         "  --ignition X,Y            Ignition point; may be repeated (default: center)\n"
         "  --output DIRECTORY        Write summary.csv in this directory\n"
         "  --export FORMAT           none, csv, ppm, or both (default: none)\n"

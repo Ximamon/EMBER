@@ -96,6 +96,18 @@ void validate_config(const SimulationConfig& config) {
     if (!std::isfinite(config.slope_scale) || config.slope_scale <= 0.0F) {
         throw std::invalid_argument("slope scale must be finite and greater than zero");
     }
+    if (!std::isfinite(config.wind_speed_m_s) || config.wind_speed_m_s < 0.0F) {
+        throw std::invalid_argument("wind speed must be finite and non-negative");
+    }
+    if (!std::isfinite(config.rothermel_time_step_s) || config.rothermel_time_step_s <= 0.0F) {
+        throw std::invalid_argument("time step must be finite and greater than zero");
+    }
+    if (!std::isfinite(config.rothermel_cell_size_m) || config.rothermel_cell_size_m <= 0.0F) {
+        throw std::invalid_argument("Rothermel cell size must be finite and greater than zero");
+    }
+    if (!std::isfinite(config.min_spread_rate_m_s) || config.min_spread_rate_m_s < 0.0F) {
+        throw std::invalid_argument("minimum spread rate must be finite and non-negative");
+    }
     validate_range(config.min_fuel, config.max_fuel, "fuel");
     validate_range(config.min_moisture, config.max_moisture, "moisture");
     validate_range(config.min_vegetation, config.max_vegetation, "vegetation");
