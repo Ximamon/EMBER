@@ -329,10 +329,12 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         }
 
 #if EMBER_ENABLE_CUDA
-        // Include one-time context startup and workspace release in the batch wall time.
+        // On single-node execution, the total core time is equal to the wall-clock time.
+        if (world_size == 1) {
         batch.total_core_seconds = wall_clock_seconds;
         batch.mean_scenario_seconds = batch.completed_scenarios > 0 ?
             wall_clock_seconds / static_cast<double>(batch.completed_scenarios) : 0.0;
+    }
 #endif
 
         // On multi-node parallel execution, replace with the actual elapsed wall-clock time

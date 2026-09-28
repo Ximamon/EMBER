@@ -368,6 +368,19 @@ namespace ember {
     bool initialize_cuda_context(double& seconds) {
         const nvtx::ScopedRange range("cuda.startup", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
+        
+        // Assing GPU based on local rank to avoid contention in multi-GPU nodes
+        int device_count = 0;
+        cudaGetDeviceCount(&device_count);
+        if (device_count > 0) {
+            int local_rank = 0;
+            const char* ompi_rank_env = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+            const char* slurm_rank_env = std::getenv("SLURM_LOCALID");
+            if (ompi_rank_env) local_rank = std::atoi(ompi_rank_env);
+            else if (slurm_rank_env) local_rank = std::atoi(slurm_rank_env);
+            cudaSetDevice(local_rank % device_count);
+        }
+
         const auto status = cudaFree(nullptr);
         seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         if (status != cudaSuccess) {
