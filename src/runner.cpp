@@ -2,7 +2,7 @@
  * @file runner.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Implementation of the simulation runner.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -29,7 +29,7 @@
 #endif
 
 #if EMBER_ENABLE_CUDA
-#include "ember/cuda_simulation.hpp"
+#include "ember/cuda/simulation_cuda.hpp"
 #endif
 
 namespace ember {

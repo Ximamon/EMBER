@@ -2,7 +2,7 @@
  * @file simulation.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Simulation class for running the Ember wildfire simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 

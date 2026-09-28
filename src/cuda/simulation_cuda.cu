@@ -1,4 +1,14 @@
-#include "ember/cuda_simulation.hpp"
+/**
+ * @file simulation_cuda.cu
+ * @author Julian Hinojosa (@jhg45-ua)
+ * @brief Implementation of CUDA accelerated kernels, on-device PRNG, and VRAM workspace.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
+#include "ember/cuda/simulation_cuda.hpp"
 #include "ember/random.hpp"
 #include "ember/nvtx.hpp"
 #include "ember/simulation.hpp"
@@ -22,13 +32,18 @@ namespace ember {
                       << " (" << __FILE__ << ":" << __LINE__ << ")\n";        \
             return false;                                                     \
         }                                                                     \
-    } while(0)                                                                \
+    } while(0)
 
 
     // ============================================================================
     // STATE-LESS DETERMINISTIC RANDOM NUMBER GENERATOR (GPU DEVICE INTRINSICS)
     // ============================================================================
 
+    /**
+     * @brief Evaluates the SplitMix64 bit mixer on the GPU.
+     * @param value 64-bit integer state.
+     * @return 64-bit pseudo-random mixed value.
+     */
     __device__ __forceinline__ uint64_t cuda_mix64(uint64_t value) {
         value += 0x9e3779b97f4a7c15ULL;
         value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
@@ -36,10 +51,24 @@ namespace ember {
         return value ^ (value >> 31U);
     }
 
+    /**
+     * @brief Combines two 64-bit hashes using Golden Ratio mixing.
+     * @param seed Accumulated seed hash.
+     * @param value Value to combine.
+     * @return Combined hash value.
+     */
     __device__ __forceinline__ uint64_t cuda_hash_combine(uint64_t seed, uint64_t value) {
         return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
     }
 
+    /**
+     * @brief Computes a stateless deterministic hash keyed by scenario, step, and cell.
+     * @param seed Base scenario seed.
+     * @param tag Domain separator tag (e.g., random_tag::spread).
+     * @param step Current timestep index.
+     * @param cell Cell index in the 1D grid.
+     * @return 64-bit pseudo-random hash value.
+     */
     __device__ __forceinline__ uint64_t cuda_keyed_hash(
         uint64_t seed, uint64_t tag, uint64_t step, uint64_t cell)
     {
@@ -50,12 +79,17 @@ namespace ember {
         return cuda_mix64(h);
     }
 
+    /**
+     * @brief Normalizes a 64-bit random value to a double-precision float in [0, 1).
+     * Matches bit-for-bit the CPU uniform01 implementation.
+     * @param bits 64-bit unsigned integer.
+     * @return Double-precision float in [0.0, 1.0).
+     */
     __device__ __forceinline__ double cuda_uniform01(uint64_t bits) {
-        // Escala exactamente a [0, 1) en doble precisión idéntico a la CPU
         return static_cast<double>(bits >> 11U) * 0x1.0p-53;
     }
 
-    // Synthetic input must use the CPU hash, not the legacy CUDA spread hash above.
+    // Synthetic input must use the exact CPU hash structure, ensuring identical random fields.
     __device__ __forceinline__ uint64_t input_mix64(uint64_t value) {
         value += 0x9e3779b97f4a7c15ULL;
         value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
@@ -71,11 +105,44 @@ namespace ember {
         return input_hash_combine(input_hash_combine(input_hash_combine(seed, tag), cell), 0);
     }
 
+    /**
+     * @brief Maps random bits to a uniform floating-point range using hardware rounding intrinsics.
+     * Uses `__fadd_rn`, `__fmul_rn`, and `__fsub_rn` to match IEEE-754 round-to-nearest-even on host.
+     */
     __device__ __forceinline__ float input_uniform_range(uint64_t bits, float minimum, float maximum) {
         const float unit = static_cast<float>(static_cast<double>(bits >> 11U) * 0x1.0p-53);
         return __fadd_rn(minimum, __fmul_rn(unit, __fsub_rn(maximum, minimum)));
     }
 
+    /**
+     * @brief CUDA kernel for on-device synthetic terrain initialization.
+     * 
+     * Generates fuel, moisture, vegetation, elevation, and initial burn states directly
+     * in VRAM without requiring intermediate PCIe host-to-device transfers.
+     * 
+     * @param count Total number of cells in the grid.
+     * @param center Linear index of the center cell (used for default ignition).
+     * @param seed Base scenario seed.
+     * @param min_fuel Minimum fuel value.
+     * @param max_fuel Maximum fuel value.
+     * @param min_moisture Minimum moisture value.
+     * @param max_moisture Maximum moisture value.
+     * @param min_vegetation Minimum vegetation density.
+     * @param max_vegetation Maximum vegetation density.
+     * @param min_elevation Minimum elevation in meters.
+     * @param max_elevation Maximum elevation in meters.
+     * @param non_combustible_fraction Fraction of cells designated non-combustible.
+     * @param burn_rate Fuel consumption rate per burning step.
+     * @param ignitions Array of linear cell indices for ignition points.
+     * @param ignition_count Number of ignition points in the array.
+     * @param[out] state_curr Current state buffer.
+     * @param[out] state_next Next state buffer.
+     * @param[out] fuel_curr Current fuel buffer.
+     * @param[out] fuel_next Next fuel buffer.
+     * @param[out] moisture Moisture buffer.
+     * @param[out] vegetation Vegetation buffer.
+     * @param[out] elevation Elevation buffer.
+     */
     __global__ void initialize_synthetic_kernel(
         std::size_t count, std::size_t center, uint64_t seed,
         float min_fuel, float max_fuel, float min_moisture, float max_moisture,
@@ -104,6 +171,9 @@ namespace ember {
         fuel_curr[index] = fuel_next[index] = fuel;
     }
 
+    /**
+     * @brief Clamps a float value to the [0.0, 1.0] range on the device.
+     */
     __device__ __forceinline__ float cuda_clamp01(float value) {
         return fminf(fmaxf(value, 0.0f), 1.0f);
     }
@@ -112,6 +182,12 @@ namespace ember {
     // IGNITION PROBABILITY CALCULATION FOR NEIGHBORING CELLS
     // ============================================================================
 
+    /**
+     * @brief Calculates the fire spread probability from a burning neighbor to a target cell.
+     * 
+     * Incorporates distance attenuation (1.0 orthogonal, 1/sqrt(2) diagonal), wind alignment
+     * projection, topographic slope factor, moisture dampening, and fuel/vegetation density.
+     */
     __device__ __forceinline__ float cuda_neighbor_probability(
         float target_fuel,
         float target_moisture,
@@ -155,6 +231,16 @@ namespace ember {
     // 2D PHYSICAL PROPAGATION KERNEL (MOORE STENCIL)
     // ============================================================================
 
+    /**
+     * @brief 2D physical wildfire propagation kernel evaluating an 8-neighbor Moore stencil.
+     * 
+     * Executed with 16x16 thread blocks. Evaluates state transitions:
+     * - NonCombustible / Burned: Remains unchanged.
+     * - Burning: Consumes fuel at `burn_rate`; transitions to Burned when fuel <= 0.
+     * - Unburned: Evaluates fire transmission probability across the 8 Moore neighbors.
+     *   Uses short-circuit pruning when no neighbor is burning. If burning neighbors exist,
+     *   draws a pseudo-random number from `cuda_keyed_hash` to decide ignition.
+     */
     __global__ void step_stencil_kernel(
         int width,
         int height,
@@ -182,14 +268,14 @@ namespace ember {
         const int idx = y * width + x;
         const CellState current_state = state_in[idx];
 
-        // Celdas calcinadas o no combustibles
+        // Non-combustible or already burned cells undergo no state transitions
         if (current_state == CellState::NonCombustible || current_state == CellState::Burned) {
             state_out[idx] = current_state;
             fuel_out[idx] = fuel_in[idx];
             return;
         }
 
-        // Celdas ardiendo: consumen combustible según burn_rate
+        // Burning cells consume fuel according to the configured burn rate
         if (current_state == CellState::Burning) {
             const float remaining_fuel = fuel_in[idx] - burn_rate;
             const float clamped_fuel = remaining_fuel > 0.0f ? remaining_fuel : 0.0f;
@@ -198,7 +284,7 @@ namespace ember {
             return;
         }
 
-        // Celda combustible no quemada (Unburned): explorar vecindario de Moore de 8 celdas
+        // Unburned cell: inspect the 8-cell Moore neighborhood
         double probability_not_ignited = 1.0;
 
         const float target_fuel = fuel_in[idx];
@@ -240,13 +326,13 @@ namespace ember {
 
         fuel_out[idx] = target_fuel;
 
-        // Cortocircuito estocástico: si ningún vecino arde, la celda permanece Unburned
+        // Stochastic short-circuit: if no neighbor is burning, cell remains Unburned
         if (probability_not_ignited >= 1.0) {
             state_out[idx] = CellState::Unburned;
             return;
         }
 
-        // Evaluación determinista mediante el hash congruente con la CPU
+        // Deterministic stochastic evaluation congruent with the CPU baseline
         const double ignition_probability = 1.0 - probability_not_ignited;
         const double draw = cuda_uniform01(cuda_keyed_hash(
             scenario_seed,
@@ -262,19 +348,20 @@ namespace ember {
     // ============================================================================
     // CONTROLLER AND VRAM MANAGER (HOST RUNNER)
     // ============================================================================
+
     bool check_cuda_device() {
         int device_count = 0;
         cudaError_t err = cudaGetDeviceCount(&device_count);
         if (err != cudaSuccess || device_count == 0) {
-            std::cerr << "No GPUs avalible\n";
+            std::cerr << "No GPUs available\n";
             return false;
         }
 
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
         std::cout << "[CUDA] Device: " << prop.name 
-                << " | Compute Capability: " << prop.major << "." << prop.minor
-                << " | VRAM Total: " << prop.totalGlobalMem / (1024 * 1024 * 1024) << " GB\n";
+                  << " | Compute Capability: " << prop.major << "." << prop.minor
+                  << " | VRAM Total: " << prop.totalGlobalMem / (1024 * 1024 * 1024) << " GB\n";
         return true;
     }
 
@@ -353,8 +440,11 @@ namespace ember {
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
+        // Ensure workspace VRAM buffers are allocated (amortized across the batch)
         if (!workspace.allocate(timings.allocation_seconds)) return false;
-        // Start each scenario from the same two buffers, regardless of pointer swaps in prior runs.
+
+        // Start each scenario from the canonical buffers; double-buffering pointer swaps
+        // are performed exclusively on these local stack variables
         CellState* d_state_curr = workspace.state_curr_;
         CellState* d_state_next = workspace.state_next_;
         float* d_fuel_curr = workspace.fuel_curr_;
@@ -370,6 +460,7 @@ namespace ember {
             return false;
         }
 
+        // Initialize grid inputs: either on-device GPU kernel or Host-to-Device memory copy
         if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
             const auto count = config.ignitions.size();
             if (count > workspace.ignition_capacity_) {
@@ -409,6 +500,8 @@ namespace ember {
             CUDA_CHECK(cudaDeviceSynchronize());
             timings.device_initialization_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+            
+            // Optional parity verification against reference CPU initialization
             if (config.verify_cuda_initialization) {
                 const nvtx::ScopedRange verify_range("cuda.verify_initial_input", nvtx::green, 2U);
                 SimulationConfig cpu_config = config;
@@ -442,6 +535,7 @@ namespace ember {
                     !compare_field("elevation", d_elevation, expected.elevation)) return false;
             }
         } else {
+            // Upload pre-initialized host buffers to the device
             const nvtx::ScopedRange upload_range("cuda.host_to_device", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
             CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
@@ -453,17 +547,18 @@ namespace ember {
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         }
 
-        // Precalcular vectores directores de viento para evitar funciones trigonométricas en la GPU
+        // Precompute wind unit vector components on host to avoid trigonometric evaluations in kernel
         constexpr float pi = 3.14159265358979323846f;
         const float radians = config.wind_direction_degrees * pi / 180.0f;
         const float wind_x = std::cos(radians);
         const float wind_y = std::sin(radians);
 
-        // Derivar la semilla canónica del escenario exactamente igual que la CPU
+        // Derive deterministic scenario seed matching CPU baseline
         const std::uint64_t scenario_seed = ember::scenario_seed(
             config.seed, static_cast<std::uint64_t>(scenario_id)
         );
 
+        // 2D thread block and grid configuration
         const dim3 block_dim(16, 16);
         const dim3 grid_dim((width + 15) / 16, (height + 15) / 16);
 
@@ -492,13 +587,12 @@ namespace ember {
                     d_state_next
                 );
 
-                // Rotación de doble buffer en registros VRAM (coste 0.00 ms)
+                // Ping-pong double buffer pointer rotation on host stack (zero overhead)
                 std::swap(d_state_curr, d_state_next);
                 std::swap(d_fuel_curr, d_fuel_next);
             }
 
-            // Maintain synchronization within `cuda.timesteps` to measure
-            // actual asynchronous execution on the GPU, not just kernel invocation
+            // Explicit device synchronization to measure actual GPU computation time
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
             CUDA_CHECK(cudaDeviceSynchronize());
         }
@@ -507,7 +601,7 @@ namespace ember {
         timings.kernel_seconds = std::chrono::duration<double>(t_end - t_start).count();
         completed_steps = config.max_steps;
 
-        // Recuperar el resultado final de Device a Host
+        // Retrieve final scenario simulation state from device to host
         {
             const nvtx::ScopedRange download_range("cuda.device_to_host", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
@@ -525,4 +619,4 @@ namespace ember {
         return true;
     }
 
-}
+} // namespace ember

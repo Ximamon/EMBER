@@ -2,7 +2,7 @@
  * @file simulation.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Implementation of the wildfire simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -14,7 +14,7 @@
 #include "ember/terrain.hpp"
 
 #if AVX2
-#include "avx2_support.hpp"
+#include "ember/simd/avx2_support.hpp"
 #endif
 
 #include <algorithm>

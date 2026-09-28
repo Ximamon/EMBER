@@ -2,7 +2,7 @@
  * @file config.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Implementation of the simulation configuration.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 

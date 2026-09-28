@@ -2,7 +2,7 @@
  * @file grid.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Grid structure for the Ember simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
