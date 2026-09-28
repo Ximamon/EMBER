@@ -424,15 +424,17 @@ namespace ember {
         seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     }
 
-    bool run_scenario_cuda(
+    // ============================================================================
+    // PIPELINED ASYNCHRONOUS LAUNCH & SYNCHRONIZATION
+    // ============================================================================
+
+    bool launch_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,
         GridBuffers& buffers,
         CudaWorkspace& workspace,
-        std::size_t& completed_steps,
         CudaScenarioTimings& timings)
     {
-        const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
         const int width = static_cast<int>(config.width);
         const int height = static_cast<int>(config.height);
         const std::size_t num_cells = config.width * config.height;
@@ -440,11 +442,8 @@ namespace ember {
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
-        // Ensure workspace VRAM buffers are allocated (amortized across the batch)
         if (!workspace.allocate(timings.allocation_seconds)) return false;
 
-        // Start each scenario from the canonical buffers; double-buffering pointer swaps
-        // are performed exclusively on these local stack variables
         CellState* d_state_curr = workspace.state_curr_;
         CellState* d_state_next = workspace.state_next_;
         float* d_fuel_curr = workspace.fuel_curr_;
@@ -460,7 +459,6 @@ namespace ember {
             return false;
         }
 
-        // Initialize grid inputs: either on-device GPU kernel or Host-to-Device memory copy
         if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
             const auto count = config.ignitions.size();
             if (count > workspace.ignition_capacity_) {
@@ -500,8 +498,6 @@ namespace ember {
             CUDA_CHECK(cudaDeviceSynchronize());
             timings.device_initialization_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-            
-            // Optional parity verification against reference CPU initialization
             if (config.verify_cuda_initialization) {
                 const nvtx::ScopedRange verify_range("cuda.verify_initial_input", nvtx::green, 2U);
                 SimulationConfig cpu_config = config;
@@ -535,7 +531,6 @@ namespace ember {
                     !compare_field("elevation", d_elevation, expected.elevation)) return false;
             }
         } else {
-            // Upload pre-initialized host buffers to the device
             const nvtx::ScopedRange upload_range("cuda.host_to_device", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
             CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
@@ -547,70 +542,72 @@ namespace ember {
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         }
 
-        // Precompute wind unit vector components on host to avoid trigonometric evaluations in kernel
         constexpr float pi = 3.14159265358979323846f;
         const float radians = config.wind_direction_degrees * pi / 180.0f;
         const float wind_x = std::cos(radians);
         const float wind_y = std::sin(radians);
+        const std::uint64_t scenario_seed = ember::scenario_seed(config.seed, static_cast<std::uint64_t>(scenario_id));
 
-        // Derive deterministic scenario seed matching CPU baseline
-        const std::uint64_t scenario_seed = ember::scenario_seed(
-            config.seed, static_cast<std::uint64_t>(scenario_id)
-        );
-
-        // 2D thread block and grid configuration
         const dim3 block_dim(16, 16);
         const dim3 grid_dim((width + 15) / 16, (height + 15) / 16);
 
-        const auto t_start = std::chrono::steady_clock::now();
+        workspace.kernel_start_time_ = std::chrono::steady_clock::now();
 
         {
             const nvtx::ScopedRange timesteps_range("cuda.timesteps", nvtx::orange, 2U);
             for (std::size_t step = 0; step < config.max_steps; ++step) {
                 step_stencil_kernel<<<grid_dim, block_dim>>>(
-                    width,
-                    height,
-                    scenario_seed,
-                    static_cast<uint64_t>(step),
-                    static_cast<float>(config.base_spread),
-                    static_cast<float>(config.burn_rate),
-                    static_cast<float>(config.wind_strength),
-                    wind_x,
-                    wind_y,
+                    width, height, scenario_seed, static_cast<uint64_t>(step),
+                    static_cast<float>(config.base_spread), static_cast<float>(config.burn_rate),
+                    static_cast<float>(config.wind_strength), wind_x, wind_y,
                     static_cast<float>(config.slope_scale),
-                    d_fuel_curr,
-                    d_fuel_next,
-                    d_elevation,
-                    d_moisture,
-                    d_vegetation,
-                    d_state_curr,
-                    d_state_next
+                    d_fuel_curr, d_fuel_next, d_elevation, d_moisture, d_vegetation,
+                    d_state_curr, d_state_next
                 );
 
-                // Ping-pong double buffer pointer rotation on host stack (zero overhead)
                 std::swap(d_state_curr, d_state_next);
                 std::swap(d_fuel_curr, d_fuel_next);
             }
+        }
 
-            // Explicit device synchronization to measure actual GPU computation time
+        // Guardamos los punteros finales donde quedó el último estado
+        workspace.result_state_curr_ = d_state_curr;
+        workspace.result_fuel_curr_ = d_fuel_curr;
+
+        return true;
+    }
+
+    bool sync_and_download_scenario_cuda(
+        const SimulationConfig& config,
+        GridBuffers& buffers,
+        CudaWorkspace& workspace,
+        std::size_t& completed_steps,
+        CudaScenarioTimings& timings)
+    {
+        const std::size_t num_cells = config.width * config.height;
+        const std::size_t bytes_state = num_cells * sizeof(CellState);
+        const std::size_t bytes_float = num_cells * sizeof(float);
+
+        // Bloqueo y espera de la CPU a que la GPU termine
+        {
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
             CUDA_CHECK(cudaDeviceSynchronize());
         }
 
         const auto t_end = std::chrono::steady_clock::now();
-        timings.kernel_seconds = std::chrono::duration<double>(t_end - t_start).count();
+        timings.kernel_seconds = std::chrono::duration<double>(t_end - workspace.kernel_start_time_).count();
         completed_steps = config.max_steps;
 
-        // Retrieve final scenario simulation state from device to host
+        auto view = buffers.current_view();
         {
             const nvtx::ScopedRange download_range("cuda.device_to_host", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
-            CUDA_CHECK(cudaMemcpy(view.state, d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
-            CUDA_CHECK(cudaMemcpy(view.fuel, d_fuel_curr, bytes_float, cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(view.state, workspace.result_state_curr_, bytes_state, cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(view.fuel, workspace.result_fuel_curr_, bytes_float, cudaMemcpyDeviceToHost));
             if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
-                CUDA_CHECK(cudaMemcpy(view.moisture, d_moisture, bytes_float, cudaMemcpyDeviceToHost));
-                CUDA_CHECK(cudaMemcpy(view.vegetation, d_vegetation, bytes_float, cudaMemcpyDeviceToHost));
-                CUDA_CHECK(cudaMemcpy(view.elevation, d_elevation, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.moisture, workspace.moisture_, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.vegetation, workspace.vegetation_, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.elevation, workspace.elevation_, bytes_float, cudaMemcpyDeviceToHost));
             }
             timings.device_to_host_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -619,4 +616,16 @@ namespace ember {
         return true;
     }
 
+    bool run_scenario_cuda(
+        const SimulationConfig& config,
+        std::size_t scenario_id,
+        GridBuffers& buffers,
+        CudaWorkspace& workspace,
+        std::size_t& completed_steps,
+        CudaScenarioTimings& timings)
+    {
+        const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
+        if (!launch_scenario_cuda(config, scenario_id, buffers, workspace, timings)) return false;
+        return sync_and_download_scenario_cuda(config, buffers, workspace, completed_steps, timings);
+    }
 } // namespace ember

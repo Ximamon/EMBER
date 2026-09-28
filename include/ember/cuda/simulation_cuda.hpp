@@ -14,6 +14,7 @@
 #include "ember/grid.hpp"
 
 #include <cstddef>
+#include <chrono>
 
 namespace ember {
 
@@ -80,6 +81,10 @@ public:
 private:
     friend bool run_scenario_cuda(const SimulationConfig&, std::size_t, GridBuffers&,
                                   CudaWorkspace&, std::size_t&, CudaScenarioTimings&);
+    friend bool launch_scenario_cuda(const SimulationConfig&, std::size_t, GridBuffers&,
+                                     CudaWorkspace&, CudaScenarioTimings&);
+    friend bool sync_and_download_scenario_cuda(const SimulationConfig&, GridBuffers&,
+                                                CudaWorkspace&, std::size_t&, CudaScenarioTimings&);
 
     std::size_t cell_count_{};
     CellState *state_curr_{}, *state_next_{};
@@ -87,6 +92,11 @@ private:
     float *elevation_{}, *moisture_{}, *vegetation_{};
     std::uint64_t* ignition_indices_{};
     std::size_t ignition_capacity_{};
+
+    // Tracking active buffers after ping-pong swaps & kernel execution start time
+    CellState* result_state_curr_{};
+    float* result_fuel_curr_{};
+    std::chrono::steady_clock::time_point kernel_start_time_{};
 };
 
 /**
@@ -103,19 +113,30 @@ bool initialize_cuda_context(double& seconds);
 bool check_cuda_device();
 
 /**
- * @brief Executes a single wildfire simulation scenario on an NVIDIA GPU.
- * 
- * Performs on-device synthetic generation or host-to-device upload, executes
- * `config.max_steps` stencil iterations using double buffering on GPU registers,
- * and transfers final cell states back to host buffers.
- * 
- * @param config Simulation configuration parameters.
- * @param scenario_id Unique identifier for the scenario.
- * @param buffers Host grid buffers providing views and receiving simulation results.
- * @param workspace Persistent VRAM workspace for GPU memory reuse.
- * @param[out] completed_steps Number of simulation steps completed.
- * @param[out] timings Deserialized performance phase timings.
- * @return true if scenario executed successfully, false on any CUDA error.
+ * @brief Asynchronously enqueues inputs (H2D) and dispatches all simulation kernels to GPU.
+ * Returns immediately to allow CPU to perform host initialization for the next scenario.
+ */
+bool launch_scenario_cuda(
+    const SimulationConfig& config,
+    std::size_t scenario_id,
+    GridBuffers& buffers,
+    CudaWorkspace& workspace,
+    CudaScenarioTimings& timings
+);
+
+/**
+ * @brief Blocks host CPU until GPU execution completes (cudaDeviceSynchronize) and downloads results (D2H).
+ */
+bool sync_and_download_scenario_cuda(
+    const SimulationConfig& config,
+    GridBuffers& buffers,
+    CudaWorkspace& workspace,
+    std::size_t& completed_steps,
+    CudaScenarioTimings& timings
+);
+
+/**
+ * @brief Monolithic wrapper preserving backward compatibility.
  */
 bool run_scenario_cuda(
     const SimulationConfig& config,
