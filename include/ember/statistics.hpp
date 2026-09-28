@@ -54,8 +54,15 @@ struct ScenarioStatistics {
 
     /// @brief Percentage of the grid that burned during the simulation.
     double burned_percent{};
-    std::size_t valid_cells{}, nodata_cells{}, initially_combustible_cells{};
-    double burned_hectares{-1.0}; // unavailable for synthetic grids
+    /// @brief Total count of valid (non-NODATA) cells within the terrain bounding box.
+    std::size_t valid_cells{};
+    /// @brief Count of NODATA cells located outside the terrain boundaries.
+    std::size_t nodata_cells{};
+    /// @brief Total number of cells that were initially combustible before ignition.
+    std::size_t initially_combustible_cells{};
+    /// @brief Total burned area in hectares (-1.0 for synthetic non-georeferenced grids).
+    double burned_hectares{-1.0};
+    /// @brief Percentage of initially combustible cells that were consumed by fire.
     double combustible_burned_percent{};
     /// @brief Initialization time in seconds for the simulation.
     double initialization_seconds{};
