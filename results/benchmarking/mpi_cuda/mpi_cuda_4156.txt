@@ -1,0 +1,35 @@
+==================================================
+CURIOSITY - DISTRIBUTED MPI + CUDA BENCHMARK (4x A100)
+Job ID: 4156
+Assigned nodes:
+gpu003
+gpu004
+gpu005
+gpu006
+==================================================
+EMBER
+MPI Nodes: 4
+Grid: 2048 x 2048
+Maximum steps: 2048
+Scenarios: 80
+Seed: 42
+Initialization time: 2.337581 s
+Simulation time (Wall-clock): 3.887651 s
+  ├── Stencil compute: 3.031683 s (77.98 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 3.887651 s
+Mean scenario time: 0.164733 s
+Mean step time: 0.074 ms
+Cell updates: 687194767360
+Cluster Throughput: 176763498148 cell updates/s
+Mean burned area: 83.451 %
+Completed scenarios: 80
+Extinguished scenarios: 0
+Max-step scenarios: 80
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 13.179 s
+  └── Effective Speedup:   3.39x / 4.00x (84.7 % efficiency)
+Summary: results/benchmarking/mpi_cuda//summary.csv
+==================================================
+Distributed MPI + CUDA benchmark completed successfully.

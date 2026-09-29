@@ -8,7 +8,7 @@ generator with OpenMP. `gpu` generates the input on the device using the CPU
 seed/hash algorithm; select it only after exact input and final-grid checks.
 `openmp` requires a build where CMake found OpenMP.
 
-On a node with CMake, submit `sbatch scripts/submit_cuda_initializers.sh`.
+On a node with CMake, submit `sbatch scripts/profiling/submit_cuda_initializers.sh`.
 The job builds a fresh Release CUDA executable and the pre-change revision
 `94bd953`, then checks exact output for several
 seeds, sizes and repeated scenarios, then measures the 256² and 1024² cases.

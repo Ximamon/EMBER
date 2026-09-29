@@ -1,3 +1,13 @@
+/**
+ * @file nvtx.hpp
+ * @author Julian Hinojosa (@jhg45-ua)
+ * @brief NVTX profiling instrumentation wrapper and RAII scoped ranges.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -14,7 +24,7 @@ namespace ember::nvtx {
 
 #if EMBER_ENABLE_NVTX
 
-// ARGB Color Palette (0xAARRGGBB) for Nsight Systems
+// ARGB Color Palette (0xAARRGGBB) for visual discrimination in NVIDIA Nsight Systems
 constexpr std::uint32_t green  = 0xFF2ECC71U;
 constexpr std::uint32_t blue   = 0xFF3498DBU;
 constexpr std::uint32_t yellow = 0xFFF1C40FU;
@@ -23,10 +33,20 @@ constexpr std::uint32_t red    = 0xFFE74C3CU;
 constexpr std::uint32_t orange = 0xFFE67E22U;
 constexpr std::uint32_t teal   = 0xFF1ABC9CU;
 
-/// @brief RAII profiling tool for Nsight Systems.
-/// Initializes a range when instantiated and closes it automatically when exiting the scope.
+/**
+ * @class ScopedRange
+ * @brief RAII profiling range for NVIDIA Nsight Systems.
+ * 
+ * Automatically pushes an NVTX range upon instantiation and pops it upon destruction.
+ */
 class ScopedRange {
 public:
+    /**
+     * @brief Constructs a scoped profiling range.
+     * @param name ASCII label for the range in the Nsight timeline.
+     * @param color ARGB color code for timeline rendering.
+     * @param category Profiling category ID.
+     */
     explicit ScopedRange(const char* name, std::uint32_t color = 0, std::uint32_t category = 0) noexcept {
         nvtxEventAttributes_t eventAttrib = {};
         eventAttrib.version = NVTX_VERSION;
@@ -46,6 +66,9 @@ public:
         nvtxRangePushEx(&eventAttrib);
     }
 
+    /**
+     * @brief Destructor. Pops the current NVTX range.
+     */
     ~ScopedRange() noexcept {
         nvtxRangePop();
     }
@@ -67,9 +90,15 @@ constexpr std::uint32_t red    = 0;
 constexpr std::uint32_t orange = 0;
 constexpr std::uint32_t teal   = 0;
 
-/// @brief A no-op version of ScopedRange with zero runtime cost.
+/**
+ * @class ScopedRange
+ * @brief No-op implementation of ScopedRange compiling to zero instructions when NVTX is disabled.
+ */
 class ScopedRange {
 public:
+    /**
+     * @brief Constructs a no-op profiling range when NVTX profiling is disabled.
+     */
     explicit ScopedRange(const char* /*name*/, std::uint32_t /*color*/ = 0, std::uint32_t /*category*/ = 0) noexcept {}
     ~ScopedRange() = default;
 
