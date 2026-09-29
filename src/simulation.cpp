@@ -142,7 +142,7 @@ void WildfireSimulation::initialize_terrain() {
         current.fuel[i] = next.fuel[i] = burns ? config_.terrain_fuel : 0.0F;
         current.moisture[i] = config_.terrain_moisture;
         current.vegetation[i] = 1.0F;
-        current.elevation[i] = 0.0F;
+        current.elevation[i] = config_.elevation ? (*config_.elevation)[i] : 0.0F;
         current.fuel_class[i] = static_cast<std::uint8_t>(
             burns ? fuel_class_for_code(terrain.codes[i]) : FuelClass::NonBurnable);
     }
