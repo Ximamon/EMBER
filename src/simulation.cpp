@@ -138,7 +138,7 @@ void WildfireSimulation::initialize_terrain() {
         current.fuel[i] = next.fuel[i] = burns ? config_.terrain_fuel : 0.0F;
         current.moisture[i] = config_.terrain_moisture;
         current.vegetation[i] = 1.0F;
-        current.elevation[i] = 0.0F;
+        current.elevation[i] = config_.elevation ? (*config_.elevation)[i] : 0.0F;
     }
 }
 
@@ -190,7 +190,10 @@ float WildfireSimulation::neighbor_ignition_probability(
     const float wind_factor = std::clamp(1.0F + config.wind_strength * alignment, 0.25F, 2.0F);
     
     // Fire travels faster uphill (positive slope) and slower downhill (negative slope).
-    const float slope = std::clamp((target_elevation - neighbor_elevation) / config.slope_scale, -1.0F, 1.0F);
+    const double slope_distance = config.elevation ? config.terrain->cell_size_m / distance_factor : config.slope_scale;
+    const float slope = config.elevation ? static_cast<float>(std::clamp(
+        (static_cast<double>(target_elevation) - neighbor_elevation) / slope_distance, -1.0, 1.0)) :
+        std::clamp((target_elevation - neighbor_elevation) / config.slope_scale, -1.0F, 1.0F);
     const float slope_factor = std::clamp(1.0F + 0.5F * slope, 0.5F, 1.5F);
     
     const float moisture_factor = 1.0F - 0.8F * clamp01(target_moisture);
@@ -219,9 +222,11 @@ float WildfireSimulation::neighbor_probability(
     // to avoid expensive trigonometric functions (cos, sin) in the hot loop.
     const float alignment = direction_x * wind_x_ + direction_y * wind_y_;
     const float wind_factor = std::clamp(1.0F + config_.wind_strength * alignment, 0.25F, 2.0F);
-    const float slope = std::clamp(
-        (current.elevation[target_index] - current.elevation[neighbor_index]) / config_.slope_scale,
-        -1.0F, 1.0F);
+    const double slope_distance = config_.elevation ? config_.terrain->cell_size_m / distance_factor : config_.slope_scale;
+    const float slope = config_.elevation ? static_cast<float>(std::clamp(
+        (static_cast<double>(current.elevation[target_index]) - current.elevation[neighbor_index]) / slope_distance,
+        -1.0, 1.0)) : std::clamp(
+        (current.elevation[target_index] - current.elevation[neighbor_index]) / config_.slope_scale, -1.0F, 1.0F);
     const float slope_factor = std::clamp(1.0F + 0.5F * slope, 0.5F, 1.5F);
     const float moisture_factor = 1.0F - 0.8F * clamp01(current.moisture[target_index]);
     return clamp01(config_.base_spread * clamp01(current.fuel[target_index]) *

@@ -18,6 +18,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #define CHECK(x) do { if (!(x)) throw std::runtime_error("check failed: " #x); } while (false)
 template<class F> void rejects(F f) {
@@ -87,6 +88,59 @@ int main() {
         rejects([&] { ember::resolve_terrain_config(parsed.config); });
         const auto directory = std::filesystem::current_path() / "terrain-test-artifacts";
         std::filesystem::create_directories(directory);
+        const auto elevation_path = directory / "elevation.asc";
+        std::filesystem::copy_file(source / "terrain.prj", directory / "elevation.prj",
+                                   std::filesystem::copy_options::overwrite_existing);
+        const std::string elevation_header = "ncols 4\nnrows 3\nxllcorner 420000\nyllcorner 4590000\ncellsize 10\nNODATA_value -9999\n";
+        const auto write_heights = [&](const std::string& header, const std::string& values) {
+            std::ofstream out(elevation_path); out << header << values;
+        };
+        write_heights(elevation_header, "-9999 -5 0 10 20 30 40 50 60 70 80 90");
+        auto relief_config = config;
+        relief_config.elevation_path = elevation_path.string();
+#if AVX2 || EMBER_ENABLE_MPI
+        rejects([&] { ember::resolve_terrain_config(relief_config); });
+#else
+        auto relief = ember::resolve_terrain_config(relief_config);
+        CHECK((*relief.elevation)[0] == 0 && (*relief.elevation)[1] == -5 && (*relief.elevation)[11] == 90);
+        ember::WildfireSimulation relief_sim(relief, 0);
+        relief_sim.initialize();
+        CHECK(relief_sim.grid().current_view().elevation[5] == 30);
+        CHECK(ember::resolve_terrain_config(relief).elevation == relief.elevation);
+        relief.wind_strength = 0;
+        relief.base_spread = .5F;
+        const auto probability = [&](float target, int dx, int dy) {
+            return ember::WildfireSimulation::neighbor_ignition_probability(
+                relief, 1, 0, 1, target, 0, dx, dy);
+        };
+        CHECK(std::abs(probability(5, 1, 0) - .625F) < 1e-6F);
+        CHECK(std::abs(probability(-5, 1, 0) - .375F) < 1e-6F);
+        const float diagonal = 1 / std::sqrt(2.0F);
+        CHECK(std::abs(probability(5, 1, 1) - .5F * (1 + .25F * diagonal) * diagonal) < 1e-6F);
+        auto no_terrain = ember::SimulationConfig{};
+        no_terrain.elevation_path = elevation_path.string();
+        rejects([&] { ember::resolve_terrain_config(no_terrain); });
+#endif
+        for (const auto& values : {"0 -9999 0 10 20 30 40 50 60 70 80 90",
+                                  "0 nan 0 10 20 30 40 50 60 70 80 90",
+                                  "0 inf 0 10 20 30 40 50 60 70 80 90",
+                                  "0 0 0", "0 0 0 0 0 0 0 0 0 0 0 0 0"}) {
+            write_heights(elevation_header, values);
+            rejects([&] { ember::load_elevation(elevation_path, *terrain); });
+        }
+        for (const auto& replacement : {std::make_pair("ncols 4", "ncols 3"),
+                                        std::make_pair("nrows 3", "nrows 4"),
+                                        std::make_pair("xllcorner 420000", "xllcorner 420001"),
+                                        std::make_pair("yllcorner 4590000", "yllcorner 4590001"),
+                                        std::make_pair("cellsize 10", "cellsize 20")}) {
+            auto shifted = elevation_header;
+            shifted.replace(shifted.find(replacement.first), std::string(replacement.first).size(), replacement.second);
+            write_heights(shifted, "0 0 0 0 0 0 0 0 0 0 0 0");
+            rejects([&] { ember::load_elevation(elevation_path, *terrain); });
+        }
+        write_heights(elevation_header, "0 0 0 0 0 0 0 0 0 0 0 0");
+        { std::ofstream out(directory / "elevation.prj"); out << "EPSG:4326"; }
+        rejects([&] { ember::load_elevation(elevation_path, *terrain); });
         const auto bad = directory / "bad.asc";
         std::filesystem::copy_file(source / "terrain.prj", directory / "bad.prj",
                                    std::filesystem::copy_options::overwrite_existing);

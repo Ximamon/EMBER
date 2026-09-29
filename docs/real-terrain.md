@@ -1,5 +1,8 @@
 # Real terrain demo (v1)
 
+For the optional extension with metric elevation and dated ERA5 weather, see
+[real-environment.md](real-environment.md). The flat-terrain workflow below remains available.
+
 EMBER uses a real **mapped distribution of fuel categories** with a simplified,
 uncalibrated stochastic spread model. This is not a forecast of an actual fire.
 The map is derived from remote sensing and fuel typology, not live measurements.

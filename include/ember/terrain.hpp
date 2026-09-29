@@ -105,6 +105,10 @@ bool combustible_code(int code) noexcept;
  *                               or the dataset contains no combustible cells.
  */
 std::shared_ptr<const TerrainData> load_terrain(const std::filesystem::path& path);
+// Read metric heights after checking exact grid alignment and coverage of valid terrain.
+std::shared_ptr<const std::vector<float>> load_elevation(
+    const std::filesystem::path& path, const TerrainData& terrain);
+// Load once if needed, resolve dimensions and ignition, and validate before allocation.
 
 /**
  * @brief Resolves, loads, and harmonizes terrain specifications with the simulation configuration.

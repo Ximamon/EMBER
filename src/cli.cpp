@@ -157,6 +157,9 @@ CliOptions parse_cli(int argc, const char* const argv[]) {
         } else if (option == "--terrain") {
             options.config.terrain_path = require_value(index, argc, argv, option);
             if (options.config.terrain_path.empty()) throw std::invalid_argument("empty terrain path");
+        } else if (option == "--elevation") {
+            options.config.elevation_path = require_value(index, argc, argv, option);
+            if (options.config.elevation_path.empty()) throw std::invalid_argument("empty elevation path");
         } else if (option == "--terrain-fuel") {
             options.config.terrain_fuel = parse_float(require_value(index, argc, argv, option), option);
         } else if (option == "--terrain-moisture") {
@@ -206,6 +209,7 @@ void print_help(std::ostream& output) {
         "  --width N                 Grid width (default: 512)\n"
         "  --height N                Grid height (default: 512)\n"
         "  --terrain FILE            ZAFM ASCII grid with .prj (EPSG:32631); CPU only\n"
+        "  --elevation FILE          Aligned metric ASCII heights with .prj; scalar CPU only\n"
         "  --terrain-fuel X          Uniform fuel in (0,1] (default: 1)\n"
         "  --terrain-moisture X      Uniform moisture in [0,1] (default: 0.2)\n"
         "  --steps N                 Maximum steps (default: 500)\n"

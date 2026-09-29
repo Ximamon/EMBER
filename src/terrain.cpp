@@ -190,6 +190,57 @@ std::shared_ptr<const TerrainData> load_terrain(const std::filesystem::path& pat
     return terrain;
 }
 
+std::shared_ptr<const std::vector<float>> load_elevation(
+    const std::filesystem::path& path, const TerrainData& terrain) {
+    std::ifstream input(path);
+    if (!input) throw std::invalid_argument("could not open elevation: " + path.string());
+    std::map<std::string, double> header;
+    for (int i = 0; i < 6; ++i) {
+        std::string line, key, extra;
+        double value = 0;
+        if (!std::getline(input, line)) throw std::invalid_argument("truncated elevation header");
+        std::istringstream row(line);
+        if (!(row >> key >> value) || (row >> extra) || !std::isfinite(value))
+            throw std::invalid_argument("invalid elevation header");
+        std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (!header.emplace(key, value).second) throw std::invalid_argument("duplicate elevation header");
+    }
+    for (const auto* key : {"ncols", "nrows", "xllcorner", "yllcorner", "cellsize", "nodata_value"})
+        if (!header.count(key)) throw std::invalid_argument(std::string("missing elevation header: ") + key);
+    // Sub-micrometre tolerance accommodates decimal serialization, not shifted grids.
+    if (header.at("ncols") != static_cast<double>(terrain.width) ||
+        header.at("nrows") != static_cast<double>(terrain.height) ||
+        std::abs(header.at("xllcorner") - terrain.xllcorner) > 1e-7 ||
+        std::abs(header.at("yllcorner") - terrain.yllcorner) > 1e-7 ||
+        std::abs(header.at("cellsize") - terrain.cell_size_m) > 1e-7)
+        throw std::invalid_argument("elevation geometry does not match terrain");
+    auto projection_path = path;
+    projection_path.replace_extension(".prj");
+    std::ifstream projection(projection_path);
+    std::string crs((std::istreambuf_iterator<char>(projection)), std::istreambuf_iterator<char>());
+    if (crs.find("AUTHORITY[\"EPSG\",\"32631\"]") == std::string::npos &&
+        crs.find("ID[\"EPSG\",32631]") == std::string::npos)
+        throw std::invalid_argument("elevation needs a .prj sidecar with EPSG:32631 (metres)");
+    auto heights = std::make_shared<std::vector<float>>();
+    heights->reserve(terrain.codes.size());
+    for (std::size_t i = 0; i < terrain.codes.size(); ++i) {
+        double value = 0;
+        if (!(input >> value) || !std::isfinite(value) ||
+            std::abs(value) > static_cast<double>(std::numeric_limits<float>::max()))
+            throw std::invalid_argument("invalid or missing elevation at cell " + std::to_string(i));
+        if (value == header.at("nodata_value")) {
+            if (terrain.valid[i]) throw std::invalid_argument("missing elevation on valid terrain");
+            value = 0; // Outside the simulation domain only; these cells cannot burn.
+        }
+        heights->push_back(static_cast<float>(value));
+    }
+    std::string extra;
+    if (input >> extra) throw std::invalid_argument("extra data after elevation cells");
+    return heights;
+}
+
 /**
  * @brief Resolves, loads, and harmonizes terrain specifications with the simulation configuration.
  * 
@@ -205,12 +256,28 @@ std::shared_ptr<const TerrainData> load_terrain(const std::filesystem::path& pat
  * @throws std::invalid_argument If CUDA is enabled, dimensions conflict, or ignition is invalid.
  */
 SimulationConfig resolve_terrain_config(SimulationConfig config) {
+    const bool has_elevation = !config.elevation_path.empty() || config.elevation;
+#if AVX2 || EMBER_ENABLE_CUDA || EMBER_ENABLE_MPI
+    if (has_elevation)
+        throw std::invalid_argument("elevation requires scalar CPU: AVX2=OFF, EMBER_ENABLE_CUDA=OFF, EMBER_ENABLE_MPI=OFF");
+#endif
 #if EMBER_ENABLE_CUDA
     // In v0.5.0, real terrain execution is restricted to CPU backends.
     if (!config.terrain_path.empty() || config.terrain) {
         throw std::invalid_argument("real terrain requires a CPU build: EMBER_ENABLE_CUDA=OFF");
     }
 #endif
+    if (!config.terrain && !config.terrain_path.empty()) config.terrain = load_terrain(config.terrain_path);
+    if (has_elevation && !config.terrain)
+        throw std::invalid_argument("elevation requires --terrain");
+    if (!config.elevation && !config.elevation_path.empty())
+        config.elevation = load_elevation(config.elevation_path, *config.terrain);
+    if (config.elevation) {
+        if (config.elevation->size() != config.terrain->codes.size())
+            throw std::invalid_argument("elevation size does not match terrain");
+        for (float value : *config.elevation)
+            if (!std::isfinite(value)) throw std::invalid_argument("elevation must be finite");
+    }
 
     // Load terrain data once if a path was supplied and dataset has not been loaded yet
     if (!config.terrain && !config.terrain_path.empty()) {
