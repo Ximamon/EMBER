@@ -1,0 +1,59 @@
+==================================================
+CURIOSITY - DISTRIBUTED MPI + CUDA PROFILING (NSYS)
+Job ID: 4160
+Assigned nodes:
+gpu003
+gpu004
+gpu005
+gpu006
+==================================================
+Collecting data...
+Collecting data...
+Collecting data...
+Collecting data...
+EMBER
+MPI Nodes: 4
+Grid: 1024 x 1024
+Maximum steps: 1024
+Scenarios: 32
+Seed: 42
+Initialization time: 0.309864 s
+Simulation time (Wall-clock): 0.866143 s
+  ├── Stencil compute: 0.151289 s (17.47 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 0.866143 s
+Mean scenario time: 0.024194 s
+Mean step time: 0.018 ms
+Cell updates: 34359738368
+Cluster Throughput: 39669822881 cell updates/s
+Mean burned area: 84.199 %
+Completed scenarios: 32
+Extinguished scenarios: 0
+Max-step scenarios: 32
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 0.774 s
+  └── Effective Speedup:   0.89x / 4.00x (22.3 % efficiency)
+Summary: results/profiling/mpi_cuda_nsys//summary.csv
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-53eb.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-97a8.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-7382.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-bdfb.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] ember_rank_1.nsys-rep[1/1] [0%                          ] ember_rank_0.nsys-rep[1/1] [0%                          ] ember_rank_1.nsys-rep[1/1] [0%                          ] ember_rank_0.nsys-rep[1/1] [9%                          ] ember_rank_0.nsys-rep[1/1] [7%                          ] ember_rank_1.nsys-rep[1/1] [13%                         ] ember_rank_1.nsys-rep[1/1] [10%                         ] ember_rank_0.nsys-rep[1/1] [14%                         ] ember_rank_0.nsys-rep[1/1] [==18%                       ] ember_rank_1.nsys-rep[1/1] [==20%                       ] ember_rank_1.nsys-rep[1/1] [==19%                       ] ember_rank_0.nsys-rep[1/1] [==21%                       ] ember_rank_1.nsys-rep[1/1] [===22%                      ] ember_rank_1.nsys-rep[1/1] [==20%                       ] ember_rank_0.nsys-rep[1/1] [===23%                      ] ember_rank_1.nsys-rep[1/1] [=====29%                    ] ember_rank_1.nsys-rep[1/1] [======35%                   ] ember_rank_1.nsys-rep[1/1] [==21%                       ] ember_rank_0.nsys-rep[1/1] [====25%                     ] ember_rank_0.nsys-rep[1/1] [=======36%                  ] ember_rank_1.nsys-rep[1/1] [=====32%                    ] ember_rank_0.nsys-rep[1/1] [=======39%                  ] ember_rank_0.nsys-rep[1/1] [========41%                 ] ember_rank_1.nsys-rep[1/1] [==============64%           ] ember_rank_1.nsys-rep[1/1] [========42%                 ] ember_rank_0.nsys-rep[1/1] [==============64%           ] ember_rank_0.nsys-rep[1/1] [================69%         ] ember_rank_1.nsys-rep[1/1] [========================100%] ember_rank_1.nsys-rep[1/1] [================70%         ] ember_rank_0.nsys-rep[1/1] [========================100%] ember_rank_0.nsys-rep[1/1] [========================100%] ember_rank_1.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/mpi_cuda_nsys/ember_rank_1.nsys-rep
+[1/1] [========================100%] ember_rank_0.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/mpi_cuda_nsys/ember_rank_0.nsys-rep
+[1/1] [0%                          ] ember_rank_2.nsys-rep[1/1] [0%                          ] ember_rank_2.nsys-rep[1/1] [9%                          ] ember_rank_2.nsys-rep[1/1] [14%                         ] ember_rank_2.nsys-rep[1/1] [==19%                       ] ember_rank_2.nsys-rep[1/1] [==20%                       ] ember_rank_2.nsys-rep[1/1] [====25%                     ] ember_rank_2.nsys-rep[1/1] [=====31%                    ] ember_rank_2.nsys-rep[1/1] [=======38%                  ] ember_rank_2.nsys-rep[1/1] [========42%                 ] ember_rank_2.nsys-rep[1/1] [==============63%           ] ember_rank_2.nsys-rep[1/1] [================70%         ] ember_rank_2.nsys-rep[1/1] [========================100%] ember_rank_2.nsys-rep[1/1] [========================100%] ember_rank_2.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/mpi_cuda_nsys/ember_rank_2.nsys-rep
+[1/1] [0%                          ] ember_rank_3.nsys-rep[1/1] [0%                          ] ember_rank_3.nsys-rep[1/1] [7%                          ] ember_rank_3.nsys-rep[1/1] [13%                         ] ember_rank_3.nsys-rep[1/1] [==18%                       ] ember_rank_3.nsys-rep[1/1] [==19%                       ] ember_rank_3.nsys-rep[1/1] [==20%                       ] ember_rank_3.nsys-rep[1/1] [==21%                       ] ember_rank_3.nsys-rep[1/1] [====27%                     ] ember_rank_3.nsys-rep[1/1] [======33%                   ] ember_rank_3.nsys-rep[1/1] [=======38%                  ] ember_rank_3.nsys-rep[1/1] [==============63%           ] ember_rank_3.nsys-rep[1/1] [================68%         ] ember_rank_3.nsys-rep[1/1] [========================100%] ember_rank_3.nsys-rep[1/1] [========================100%] ember_rank_3.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/mpi_cuda_nsys/ember_rank_3.nsys-rep
+==================================================
+Distributed MPI + CUDA profiling completed successfully.
