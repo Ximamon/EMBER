@@ -2,7 +2,7 @@
  * @file config.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Configuration structure for the Ember simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -17,6 +17,7 @@
 #include <vector>
 
 namespace ember {
+/// @brief Forward declaration of TerrainData geographic raster container.
 struct TerrainData;
 
 /**
@@ -46,6 +47,13 @@ enum class ExportFormat {
     Both
 };
 
+/**
+ * @enum SyntheticInitBackend
+ * @brief Execution backend used to generate synthetic terrain inputs.
+ * - Cpu: Single-threaded host generation using stateless keyed hashing.
+ * - OpenMp: Multi-threaded host generation using OpenMP work-sharing loops.
+ * - Cuda: Direct on-device VRAM generation via initialize_synthetic_kernel.
+ */
 enum class SyntheticInitBackend { Cpu, OpenMp, Cuda };
 
 /**
@@ -63,14 +71,23 @@ struct SimulationConfig {
 #else
     SyntheticInitBackend synthetic_init_backend{SyntheticInitBackend::Cpu};
 #endif
+    /// @brief When true, runs both CUDA and CPU synthetic initializers and asserts bitwise parity.
     bool verify_cuda_initialization{false};
+    /// @brief Path to an ESRI ASCII Grid (.asc) file representing real geographic terrain.
     std::string terrain_path;
     /// @brief Optional aligned elevation raster in metres; requires scalar CPU terrain mode.
     std::string elevation_path;
     std::shared_ptr<const std::vector<float>> elevation;
+    /// @brief Immutable shared pointer to parsed terrain data, loaded once per batch.
     std::shared_ptr<const TerrainData> terrain;
-    bool width_explicit{false}, height_explicit{false};
-    float terrain_fuel{1.0F}, terrain_moisture{0.2F};
+    /// @brief True if width was explicitly specified via CLI, used to detect conflicts with terrain dimensions.
+    bool width_explicit{false};
+    /// @brief True if height was explicitly specified via CLI, used to detect conflicts with terrain dimensions.
+    bool height_explicit{false};
+    /// @brief Uniform fuel value assigned to combustible terrain cells (default: 1.0).
+    float terrain_fuel{1.0F};
+    /// @brief Uniform moisture value assigned to combustible terrain cells (default: 0.2).
+    float terrain_moisture{0.2F};
     /// @brief Width of the simulation grid. Must be greater than zero.
     std::size_t width{512};
     /// @brief Height of the simulation grid. Must be greater than zero.

@@ -1,0 +1,37 @@
+==================================================
+CURIOSITY - SINGLE-GPU CUDA PROFILING (NSYS)
+Job ID: 4161
+Node: gpu003
+Date: Mon Sep 28 11:18:39 PM PDT 2026
+Visible GPU devices according to Slurm:
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A100-SXM4-80GB, 81920 MiB, 580.95.05
+==================================================
+EMBER
+MPI Nodes: 1
+Grid: 1024 x 1024
+Maximum steps: 1024
+Scenarios: 8
+Seed: 42
+Initialization time: 0.078570 s
+Simulation time: 0.153388 s
+  ├── Stencil compute: 0.153388 s (100.00 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 0.835820 s
+Mean scenario time: 0.104477 s
+Mean step time: 0.019 ms
+Cell updates: 8589934592
+Throughput: 56001449816 cell updates/s
+Mean burned area: 84.029 %
+Completed scenarios: 8
+Extinguished scenarios: 0
+Max-step scenarios: 8
+Summary: results/profiling/cuda_nsys//summary.csv
+Collecting data...
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-b518.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] ember_cuda_profile.nsys-rep[1/1] [0%                          ] ember_cuda_profile.nsys-rep[1/1] [7%                          ] ember_cuda_profile.nsys-rep[1/1] [11%                         ] ember_cuda_profile.nsys-rep[1/1] [12%                         ] ember_cuda_profile.nsys-rep[1/1] [13%                         ] ember_cuda_profile.nsys-rep[1/1] [=17%                        ] ember_cuda_profile.nsys-rep[1/1] [==20%                       ] ember_cuda_profile.nsys-rep[1/1] [===22%                      ] ember_cuda_profile.nsys-rep[1/1] [=======37%                  ] ember_cuda_profile.nsys-rep[1/1] [===========52%              ] ember_cuda_profile.nsys-rep[1/1] [==============61%           ] ember_cuda_profile.nsys-rep[1/1] [========================100%] ember_cuda_profile.nsys-rep[1/1] [========================100%] ember_cuda_profile.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/cuda_nsys/ember_cuda_profile.nsys-rep
+==================================================
+CUDA profiling completed successfully on NVIDIA A100 GPU.

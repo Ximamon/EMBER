@@ -2,7 +2,7 @@
  * @file export.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Export functionality for the Ember simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -23,23 +23,31 @@ namespace ember {
  * 
  * @param path The path to the output CSV file.
  * @param grid The grid data to export.
+ * @param terrain Optional pointer to terrain dataset providing GIS fuel codes and valid mask.
  */
 void export_grid_csv(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
+
 /**
  * @brief Exports the grid data to a PPM file.
  * 
  * @param path The path to the output PPM file.
  * @param grid The grid data to export.
+ * @param terrain Optional pointer to terrain dataset providing GIS valid mask for NODATA tinting.
  */
 void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain = nullptr);
 /**
- * @brief Exports the batch statistics to a CSV file.
+ * @brief Exports metadata and run configuration for terrain scenarios (run.json).
  * 
- * @param path The path to the output CSV file.
- * @param statistics The batch statistics to export.
+ * @param config Simulation configuration containing terrain metadata and output directory.
  */
 void export_terrain_run(const SimulationConfig& config);
 
+/**
+ * @brief Exports comprehensive 37-column batch execution summary metrics to CSV.
+ * 
+ * @param path Path to the output summary.csv file.
+ * @param statistics Consolidated batch statistics containing per-scenario metrics.
+ */
 void export_summary_csv(const std::filesystem::path& path, const BatchStatistics& statistics);
 
 } // namespace ember
