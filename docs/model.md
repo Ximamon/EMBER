@@ -119,5 +119,10 @@ All initial cell parameters are procedurally generated using stateless 64-bit ha
 
 The scenario seed is derived deterministically from global seed and scenario ID (`scenario_seed = hash_combine(global_seed, scenario_id)`). This eliminates mutable PRNG state and ensures bitwise reproducibility across thread or cell traversal variations.
 
-Default terrain samples are independent per cell. Spatially correlated terrain, real fuel classes, dynamic weather, physical spread rates and validated slope functions are intentionally outside the MVP. Those features can replace terrain initialization and the per-neighbor probability calculation without changing the runner or buffer protocol.
+Default synthetic terrain samples are independent per cell. The optional
+[real-environment workflow](real-environment.md) adds mapped fuel masks, metric
+surface elevations and a fixed ERA5 wind snapshot. For metric elevation only,
+the slope denominator is the horizontal neighbour distance in metres; the
+synthetic path retains `slope_scale`. Dynamic weather, physical spread rates,
+per-class fuel calibration and validated slope functions remain outside the MVP.
 

@@ -1,0 +1,2 @@
+# Prepared ASCII raster checksums must survive Windows checkouts unchanged.
+*.asc text eol=lf

@@ -98,7 +98,9 @@ void export_terrain_run(const SimulationConfig& config) {
            << ",\n  \"xllcorner\": " << t.xllcorner << ", \"yllcorner\": " << t.yllcorner
            << ",\n  \"cell_size_m\": " << t.cell_size_m
            << ",\n  \"fuel\": " << config.terrain_fuel << ", \"moisture\": " << config.terrain_moisture
-           << ",\n  \"vegetation\": 1, \"elevation\": 0,\n  \"seed\": " << config.seed
+           << ",\n  \"vegetation\": 1, \"elevation\": " << (config.elevation ? "null" : "0")
+           << ", \"elevation_units\": " << (config.elevation ? "\"metres\"" : "null")
+           << ",\n  \"seed\": " << config.seed
            << ",\n  \"base_spread\": " << config.base_spread << ", \"burn_rate\": " << config.burn_rate
            << ",\n  \"wind_direction_degrees\": " << config.wind_direction_degrees
            << ", \"wind_strength\": " << config.wind_strength

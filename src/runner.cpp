@@ -63,7 +63,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
         config = resolve_terrain_config(input_config);
         
         // If the terrain was loaded from a file, measure the time taken to load it.
-        load_seconds = (!input_config.terrain && config.terrain) ?
+        load_seconds = ((!input_config.terrain && config.terrain) || (!input_config.elevation && config.elevation)) ?
             std::chrono::duration<double>(std::chrono::steady_clock::now() - load_start).count() : 0.0;
     }
 
@@ -104,7 +104,8 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     if (config.terrain && rank == 0) {
         std::cout << "Terrain: EPSG:32631, " << config.terrain->cell_size_m << " m cells; load "
                   << load_seconds << " s\nUniform fuel: " << config.terrain_fuel
-                  << "; moisture: " << config.terrain_moisture << "; flat elevation\n";
+                  << "; moisture: " << config.terrain_moisture
+                  << (config.elevation ? "; metric elevation\n" : "; flat elevation\n");
         for (const auto& point : config.ignitions)
             std::cout << "Ignition: " << point.x << ',' << point.y << '\n';
         if (!config.output_directory.empty()) export_terrain_run(config);

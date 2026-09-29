@@ -8,6 +8,8 @@ option(
 
 if(MSVC)
     target_compile_options(ember_warnings INTERFACE $<$<COMPILE_LANGUAGE:CXX>:/W4>)
+    # Input validation throws; unwind streams and other RAII resources on failure.
+    target_compile_options(ember_warnings INTERFACE $<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(ember_warnings INTERFACE $<$<COMPILE_LANGUAGE:CXX>:
         -Wall

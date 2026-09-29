@@ -65,6 +65,9 @@ struct SimulationConfig {
 #endif
     bool verify_cuda_initialization{false};
     std::string terrain_path;
+    /// @brief Optional aligned elevation raster in metres; requires scalar CPU terrain mode.
+    std::string elevation_path;
+    std::shared_ptr<const std::vector<float>> elevation;
     std::shared_ptr<const TerrainData> terrain;
     bool width_explicit{false}, height_explicit{false};
     float terrain_fuel{1.0F}, terrain_moisture{0.2F};
