@@ -2,7 +2,7 @@
  * @file statistics.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Implementation of the simulation statistics.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -12,10 +12,16 @@
 
 namespace ember {
 
+/**
+ * @brief Converts a TerminationReason enum to a string literal.
+ */
 const char* to_string(TerminationReason reason) noexcept {
     return reason == TerminationReason::Extinguished ? "extinguished" : "max_steps";
 }
 
+/**
+ * @brief Aggregates scenario metrics and computes batch averages.
+ */
 void finalize_batch_statistics(BatchStatistics& statistics) {
     statistics.total_cell_updates = 0;
     statistics.completed_scenarios = statistics.scenario_results.size();

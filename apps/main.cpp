@@ -24,6 +24,12 @@
 
 namespace nvtx = ember::nvtx;
 
+/**
+ * @brief Application entry point for the EMBER fire simulation CLI.
+ * @param argc Count of command-line arguments.
+ * @param argv Array of command-line argument strings.
+ * @return 0 on success, non-zero on error.
+ */
 int main(int argc, const char* argv[]) {
 
     // MPI Initialization: If MPI is enabled, initialize the MPI environment and determine the rank of the current process. 

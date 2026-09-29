@@ -2,7 +2,7 @@
  * @file grid.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Grid structure for the Ember simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -117,13 +117,21 @@ public:
     void swap_buffers() noexcept;
 
 private:
+    /// @brief Grid width in cells.
     std::size_t width_{};
+    /// @brief Grid height in cells.
     std::size_t height_{};
+    /// @brief Current active buffer index (0 or 1) for double buffering.
     std::size_t current_index_{};
+    /// @brief Double buffers holding cell states.
     std::vector<CellState> states_[2];
+    /// @brief Double buffers holding fuel values.
     std::vector<float> fuels_[2];
+    /// @brief Single buffer holding static moisture values.
     std::vector<float> moisture_;
+    /// @brief Single buffer holding static vegetation density values.
     std::vector<float> vegetation_;
+    /// @brief Single buffer holding static elevation values.
     std::vector<float> elevation_;
 };
 

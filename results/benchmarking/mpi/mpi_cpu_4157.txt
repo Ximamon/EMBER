@@ -1,0 +1,35 @@
+==================================================
+CURIOSITY - DISTRIBUTED MPI CPU BENCHMARK (4 NODES)
+Job ID: 4157
+Assigned nodes:
+gpu003
+gpu004
+gpu005
+gpu006
+==================================================
+EMBER
+MPI Nodes: 4
+Grid: 2048 x 2048
+Maximum steps: 2048
+Scenarios: 80
+Seed: 42
+Initialization time: 13.814860 s
+Simulation time (Wall-clock): 713.623547 s
+  ├── Stencil compute: 702.811614 s (98.48 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 713.623547 s
+Mean scenario time: 35.314101 s
+Mean step time: 17.159 ms
+Cell updates: 687194767360
+Cluster Throughput: 962965376 cell updates/s
+Mean burned area: 84.480 %
+Completed scenarios: 80
+Extinguished scenarios: 0
+Max-step scenarios: 80
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 2825.128 s
+  └── Effective Speedup:   3.96x / 4.00x (99.0 % efficiency)
+Summary: results/benchmarking/mpi//summary.csv
+==================================================
+Distributed MPI CPU simulation completed successfully.

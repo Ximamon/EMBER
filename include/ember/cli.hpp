@@ -2,7 +2,7 @@
  * @file cli.hpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Command-line interface for the Ember simulation.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 

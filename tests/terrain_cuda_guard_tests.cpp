@@ -1,8 +1,18 @@
-// Exercise the CUDA rejection on CPU CI, without requiring nvcc or a GPU.
+/**
+ * @file terrain_cuda_guard_tests.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Test verifying rejection of real terrain on CUDA-enabled builds prior to parity.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/terrain.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <string>
+
 int main() {
     ember::SimulationConfig config;
     config.terrain_path = "does-not-exist.asc";

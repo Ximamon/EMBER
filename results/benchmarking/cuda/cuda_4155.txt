@@ -1,0 +1,30 @@
+==================================================
+CURIOSITY - SINGLE-GPU CUDA BENCHMARK (NVIDIA A100)
+Job ID: 4155
+Node: gpu003
+Date: Mon Sep 28 10:38:20 PM PDT 2026
+Visible GPU devices according to Slurm:
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A100-SXM4-80GB, 81920 MiB, 580.95.05
+==================================================
+EMBER
+Grid: 2048 x 2048
+Maximum steps: 2048
+Scenarios: 80
+Seed: 42
+Initialization time: 1.951939 s
+Simulation time: 13.235717 s
+  ├── Stencil compute: 13.235717 s (100.00 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 14.583553 s
+Mean scenario time: 0.182294 s
+Mean step time: 0.081 ms
+Cell updates: 687194767360
+Throughput: 51919724063 cell updates/s
+Mean burned area: 83.451 %
+Completed scenarios: 80
+Extinguished scenarios: 0
+Max-step scenarios: 80
+Summary: results/benchmarking/cuda//summary.csv
+==================================================
+Simulation completed successfully on NVIDIA A100 GPU.

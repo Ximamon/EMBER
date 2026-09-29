@@ -1,3 +1,13 @@
+/**
+ * @file terrain_tests.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Integration tests for ESRI ASCII Grid terrain loading, projection, and geometry.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/terrain.hpp"
 #include "ember/simulation.hpp"
 #include "ember/runner.hpp"
