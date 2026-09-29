@@ -1,0 +1,63 @@
+==================================================
+EJECUCIÓN INTRA-NODO: 4 PROCESOS MPI x 4 GPUs A100
+Job ID: 4301
+Nodo asignado: gpu007
+GPUs visibles según nvidia-smi:
+index, name, pci.bus_id
+0, NVIDIA A100-SXM4-80GB, 00000000:4E:00.0
+1, NVIDIA A100-SXM4-80GB, 00000000:87:00.0
+2, NVIDIA A100-SXM4-80GB, 00000000:90:00.0
+3, NVIDIA A100-SXM4-80GB, 00000000:B7:00.0
+==================================================
+Collecting data...
+Collecting data...
+Collecting data...
+Collecting data...
+[MPI Rank 3] Vinculado a GPU #3: NVIDIA A100-SXM4-80GB
+[MPI Rank 0] Vinculado a GPU #0: NVIDIA A100-SXM4-80GB
+[MPI Rank 2] Vinculado a GPU #2: NVIDIA A100-SXM4-80GB
+[MPI Rank 1] Vinculado a GPU #1: NVIDIA A100-SXM4-80GB
+EMBER
+MPI Nodes: 4
+Grid: 1024 x 1024
+Maximum steps: 20
+Scenarios: 32
+Seed: 42
+Initialization time: 0.444039 s
+Simulation time (Wall-clock): 2.074383 s
+  ├── Stencil compute: 0.090384 s (4.36 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 2.074383 s
+Mean scenario time: 0.017461 s
+Mean step time: 0.565 ms
+Cell updates: 671088640
+Cluster Throughput: 323512468 cell updates/s
+Mean burned area: 0.046 %
+Completed scenarios: 32
+Extinguished scenarios: 0
+Max-step scenarios: 32
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 0.559 s
+  └── Effective Speedup:   0.27x / 4.00x (6.7 % efficiency)
+Summary: results/profiling/4gpu//summary.csv
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-f38c.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-aef0.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-5b8b.qdstrm'
+Generating '/tmp/nsys-mar-mrjxj/nsys-report-db51.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] ember_1node_4gpu_2.nsys-rep[1/1] [0%                          ] ember_1node_4gpu_0.nsys-rep[1/1] [0%                          ] ember_1node_4gpu_2.nsys-rep[1/1] [==19%                       ] ember_1node_4gpu_2.nsys-rep[1/1] [0%                          ] ember_1node_4gpu_0.nsys-rep[1/1] [==18%                       ] ember_1node_4gpu_0.nsys-rep[1/1] [==20%                       ] ember_1node_4gpu_2.nsys-rep[1/1] [=====29%                    ] ember_1node_4gpu_2.nsys-rep[1/1] [==19%                       ] ember_1node_4gpu_0.nsys-rep[1/1] [====28%                     ] ember_1node_4gpu_0.nsys-rep[1/1] [=======38%                  ] ember_1node_4gpu_2.nsys-rep[1/1] [=======39%                  ] ember_1node_4gpu_2.nsys-rep[1/1] [========41%                 ] ember_1node_4gpu_2.nsys-rep[1/1] [========42%                 ] ember_1node_4gpu_2.nsys-rep[1/1] [=========45%                ] ember_1node_4gpu_2.nsys-rep[1/1] [============56%             ] ember_1node_4gpu_2.nsys-rep[1/1] [===============66%          ] ember_1node_4gpu_2.nsys-rep[1/1] [===============67%          ] ember_1node_4gpu_2.nsys-rep[1/1] [=======37%                  ] ember_1node_4gpu_0.nsys-rep[1/1] [=======39%                  ] ember_1node_4gpu_0.nsys-rep[1/1] [========41%                 ] ember_1node_4gpu_0.nsys-rep[1/1] [================68%         ] ember_1node_4gpu_2.nsys-rep[1/1] [=========45%                ] ember_1node_4gpu_0.nsys-rep[1/1] [===================80%      ] ember_1node_4gpu_2.nsys-rep[1/1] [===================82%      ] ember_1node_4gpu_2.nsys-rep[1/1] [==========47%               ] ember_1node_4gpu_0.nsys-rep[1/1] [=============58%            ] ember_1node_4gpu_0.nsys-rep[1/1] [================69%         ] ember_1node_4gpu_0.nsys-rep[1/1] [================70%         ] ember_1node_4gpu_0.nsys-rep[1/1] [=================73%        ] ember_1node_4gpu_0.nsys-rep[1/1] [==================76%       ] ember_1node_4gpu_0.nsys-rep[1/1] [=====================89%    ] ember_1node_4gpu_2.nsys-rep[1/1] [========================100%] ember_1node_4gpu_2.nsys-rep[1/1] [=====================89%    ] ember_1node_4gpu_0.nsys-rep[1/1] [========================100%] ember_1node_4gpu_0.nsys-rep[1/1] [========================100%] ember_1node_4gpu_0.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/4gpu/ember_1node_4gpu_0.nsys-rep
+[1/1] [========================100%] ember_1node_4gpu_2.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/4gpu/ember_1node_4gpu_2.nsys-rep
+[1/1] [0%                          ] ember_1node_4gpu_3.nsys-rep[1/1] [0%                          ] ember_1node_4gpu_3.nsys-rep[1/1] [==21%                       ] ember_1node_4gpu_3.nsys-rep[1/1] [=====29%                    ] ember_1node_4gpu_3.nsys-rep[1/1] [=======36%                  ] ember_1node_4gpu_3.nsys-rep[1/1] [=======37%                  ] ember_1node_4gpu_3.nsys-rep[1/1] [=======39%                  ] ember_1node_4gpu_3.nsys-rep[1/1] [========42%                 ] ember_1node_4gpu_3.nsys-rep[1/1] [=========46%                ] ember_1node_4gpu_3.nsys-rep[1/1] [============54%             ] ember_1node_4gpu_3.nsys-rep[1/1] [==============62%           ] ember_1node_4gpu_3.nsys-rep[1/1] [==============63%           ] ember_1node_4gpu_3.nsys-rep[1/1] [==============64%           ] ember_1node_4gpu_3.nsys-rep[1/1] [===============66%          ] ember_1node_4gpu_3.nsys-rep[1/1] [================69%         ] ember_1node_4gpu_3.nsys-rep[1/1] [================70%         ] ember_1node_4gpu_3.nsys-rep[1/1] [================71%         ] ember_1node_4gpu_3.nsys-rep[1/1] [====================83%     ] ember_1node_4gpu_3.nsys-rep[1/1] [=====================86%    ] ember_1node_4gpu_3.nsys-rep[1/1] [=====================89%    ] ember_1node_4gpu_3.nsys-rep[1/1] [========================100%] ember_1node_4gpu_3.nsys-rep[1/1] [========================100%] ember_1node_4gpu_3.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/4gpu/ember_1node_4gpu_3.nsys-rep
+[1/1] [0%                          ] ember_1node_4gpu_1.nsys-rep[1/1] [0%                          ] ember_1node_4gpu_1.nsys-rep[1/1] [==19%                       ] ember_1node_4gpu_1.nsys-rep[1/1] [====28%                     ] ember_1node_4gpu_1.nsys-rep[1/1] [=======37%                  ] ember_1node_4gpu_1.nsys-rep[1/1] [=======38%                  ] ember_1node_4gpu_1.nsys-rep[1/1] [=======39%                  ] ember_1node_4gpu_1.nsys-rep[1/1] [========41%                 ] ember_1node_4gpu_1.nsys-rep[1/1] [=========44%                ] ember_1node_4gpu_1.nsys-rep[1/1] [=========46%                ] ember_1node_4gpu_1.nsys-rep[1/1] [============57%             ] ember_1node_4gpu_1.nsys-rep[1/1] [================68%         ] ember_1node_4gpu_1.nsys-rep[1/1] [================70%         ] ember_1node_4gpu_1.nsys-rep[1/1] [================71%         ] ember_1node_4gpu_1.nsys-rep[1/1] [=================72%        ] ember_1node_4gpu_1.nsys-rep[1/1] [====================85%     ] ember_1node_4gpu_1.nsys-rep[1/1] [=====================86%    ] ember_1node_4gpu_1.nsys-rep[1/1] [=====================89%    ] ember_1node_4gpu_1.nsys-rep[1/1] [========================100%] ember_1node_4gpu_1.nsys-rep[1/1] [========================100%] ember_1node_4gpu_1.nsys-rep
+Generated:
+	/home/mar-mrjxj/EMBER/results/profiling/4gpu/ember_1node_4gpu_1.nsys-rep

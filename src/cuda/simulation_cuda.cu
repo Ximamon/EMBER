@@ -378,13 +378,22 @@ namespace ember {
         // Assign GPU based on local rank to avoid contention in multi-GPU nodes
         int device_count = 0;
         cudaGetDeviceCount(&device_count);
+
         if (device_count > 0) {
             int local_rank = 0;
             const char* ompi_rank_env = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK");
             const char* slurm_rank_env = std::getenv("SLURM_LOCALID");
+
             if (ompi_rank_env) local_rank = std::atoi(ompi_rank_env);
             else if (slurm_rank_env) local_rank = std::atoi(slurm_rank_env);
-            cudaSetDevice(local_rank % device_count);
+            
+            const int target_gpu = local_rank % device_count;
+            cudaSetDevice(target_gpu);
+
+            cudaDeviceProp prop;
+            cudaGetDeviceProperties(&prop, target_gpu);
+            std::cout << "[MPI Rank " << local_rank << "] Vinculado a GPU #" 
+                    << target_gpu << ": " << prop.name << '\n';
         }
 
         const auto status = cudaFree(nullptr);
