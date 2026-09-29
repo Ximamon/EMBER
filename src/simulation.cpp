@@ -9,8 +9,10 @@
  */
 
 #include "ember/simulation.hpp"
+#include "ember/fuel_model.hpp"
 #include "ember/nvtx.hpp"
 #include "ember/random.hpp"
+#include "ember/rothermel.hpp"
 #include "ember/terrain.hpp"
 
 #if AVX2
@@ -113,6 +115,8 @@ void WildfireSimulation::initialize_synthetic_terrain() {
             keyed_hash(scenario_seed_, random_tag::non_combustible, key)) < config_.non_combustible_fraction;
         current.state[index] = non_combustible ? CellState::NonCombustible : CellState::Unburned;
         next.state[index] = current.state[index];
+        current.fuel_class[index] = static_cast<std::uint8_t>(
+            non_combustible ? FuelClass::NonBurnable : config_.synthetic_fuel_class);
     };
 #if EMBER_HAVE_OPENMP
     if (config_.synthetic_init_backend == SyntheticInitBackend::OpenMp) {
@@ -138,7 +142,9 @@ void WildfireSimulation::initialize_terrain() {
         current.fuel[i] = next.fuel[i] = burns ? config_.terrain_fuel : 0.0F;
         current.moisture[i] = config_.terrain_moisture;
         current.vegetation[i] = 1.0F;
-        current.elevation[i] = config_.elevation ? (*config_.elevation)[i] : 0.0F;
+        current.elevation[i] = 0.0F;
+        current.fuel_class[i] = static_cast<std::uint8_t>(
+            burns ? fuel_class_for_code(terrain.codes[i]) : FuelClass::NonBurnable);
     }
 }
 
@@ -251,15 +257,16 @@ std::size_t WildfireSimulation::step(std::size_t step_index) {
     
     {
         const nvtx::ScopedRange compute_range("timestep.stencil_compute", nvtx::orange, 3U);
+        if (config_.spread_model == SpreadModel::Rothermel) {
+            // Deterministic accumulator path; no AVX2/CUDA variant yet (see docs/rothermel-model.md).
+            burning_next = step_scalar_rothermel();
 #if AVX2
-        if (avx2_supported()) {
+        } else if (avx2_supported()) {
             burning_next = step_avx2(step_index);
+#endif
         } else {
             burning_next = step_scalar(step_index);
         }
-#else
-        burning_next = step_scalar(step_index);
-#endif
     }
 
     const auto compute_end = clock::now();
@@ -365,6 +372,116 @@ std::size_t WildfireSimulation::step_cell(
         scenario_seed_, random_tag::spread, as_u64(step_index), as_u64(index)));
     next.state[index] = draw < ignition_probability ? CellState::Burning : CellState::Unburned;
     return next.state[index] == CellState::Burning ? 1 : 0;
+}
+
+float WildfireSimulation::rothermel_neighbor_rate(
+    const ConstGridView& current,
+    std::size_t target_index,
+    std::size_t neighbor_index,
+    int delta_x,
+    int delta_y) const {
+    const bool diagonal = delta_x != 0 && delta_y != 0;
+    const float distance_factor = diagonal ? inverse_sqrt_two : 1.0F;
+    const float direction_x = static_cast<float>(delta_x) * distance_factor;
+    const float direction_y = static_cast<float>(-delta_y) * distance_factor;
+
+    // Only a headwind component (wind blowing from the neighbor toward the target) speeds up the front;
+    // a cross- or tail-wind contributes no Rothermel wind boost in this direction.
+    const float alignment = std::max(0.0F, direction_x * wind_x_ + direction_y * wind_y_);
+    const float wind_speed_along = config_.wind_speed_m_s * alignment;
+
+    // Reuses slope_scale the same way the empirical model does (see neighbor_probability):
+    // an abstraction over real elevation units, not a real DEM-derived tangent. Clamped
+    // wider than the empirical model's [-1, 1] since phi_s legitimately grows with slope.
+    const float tan_slope = std::clamp(
+        (current.elevation[target_index] - current.elevation[neighbor_index]) / config_.slope_scale,
+        -2.0F, 2.0F);
+
+    const auto fuel_class = static_cast<FuelClass>(current.fuel_class[target_index]);
+    const FuelModelParams fuel = fuel_model_params(fuel_class);
+    const float moisture = clamp01(current.moisture[target_index]);
+    const float rate = rothermel_spread_rate_m_s(fuel, moisture, wind_speed_along, tan_slope);
+    return rate < config_.min_spread_rate_m_s ? 0.0F : rate;
+}
+
+std::size_t WildfireSimulation::step_cell_rothermel(
+    const ConstGridView& current,
+    GridView next,
+    std::size_t row,
+    std::size_t column) const {
+    const auto index = row * config_.width + column;
+    const auto state = current.state[index];
+    next.fuel[index] = current.fuel[index];
+    next.burn_fraction[index] = current.burn_fraction[index];
+
+    if (state == CellState::NonCombustible || state == CellState::Burned) {
+        next.state[index] = state;
+        return 0;
+    }
+    if (state == CellState::Burning) {
+        // Rothermel governs when a front REACHES a cell; how long it keeps burning once
+        // ignited still follows the existing fuel/burn_rate lifecycle (docs/model.md).
+        next.fuel[index] = std::max(0.0F, current.fuel[index] - config_.burn_rate);
+        next.state[index] = next.fuel[index] <= 0.0F ? CellState::Burned : CellState::Burning;
+        return next.state[index] == CellState::Burning ? 1 : 0;
+    }
+
+    // The fastest-approaching burning neighbor governs when this cell's front is reached;
+    // rates are not summed across neighbors (that would double-count the same fire front).
+    float max_rate = 0.0F;
+    for (int row_offset = -1; row_offset <= 1; ++row_offset) {
+        for (int column_offset = -1; column_offset <= 1; ++column_offset) {
+            if (row_offset == 0 && column_offset == 0) {
+                continue;
+            }
+            const auto neighbor_row_signed = static_cast<std::ptrdiff_t>(row) + row_offset;
+            const auto neighbor_column_signed = static_cast<std::ptrdiff_t>(column) + column_offset;
+            if (neighbor_row_signed < 0 || neighbor_column_signed < 0 ||
+                neighbor_row_signed >= static_cast<std::ptrdiff_t>(config_.height) ||
+                neighbor_column_signed >= static_cast<std::ptrdiff_t>(config_.width)) {
+                continue;
+            }
+            const auto neighbor_row = static_cast<std::size_t>(neighbor_row_signed);
+            const auto neighbor_column = static_cast<std::size_t>(neighbor_column_signed);
+            const auto neighbor_index = neighbor_row * config_.width + neighbor_column;
+            if (current.state[neighbor_index] == CellState::Burning) {
+                const float rate = rothermel_neighbor_rate(
+                    current, index, neighbor_index, -column_offset, -row_offset);
+                max_rate = std::max(max_rate, rate);
+            }
+        }
+    }
+
+    if (max_rate <= 0.0F) {
+        next.state[index] = CellState::Unburned;
+        return 0;
+    }
+
+    const float cellsize_m = config_.terrain ? static_cast<float>(config_.terrain->cell_size_m)
+                                              : config_.rothermel_cell_size_m;
+    const float burn_fraction = current.burn_fraction[index] +
+        max_rate * config_.rothermel_time_step_s / cellsize_m;
+    if (burn_fraction >= 1.0F) {
+        next.state[index] = CellState::Burning;
+        next.burn_fraction[index] = 1.0F;
+        return 1;
+    }
+    next.state[index] = CellState::Unburned;
+    next.burn_fraction[index] = burn_fraction;
+    return 0;
+}
+
+std::size_t WildfireSimulation::step_scalar_rothermel() {
+    const ConstGridView current = static_cast<const GridBuffers&>(grid_).current_view();
+    auto next = grid_.next_view();
+    std::size_t burning_next = 0;
+
+    for (std::size_t row = 0; row < config_.height; ++row) {
+        for (std::size_t column = 0; column < config_.width; ++column) {
+            burning_next += step_cell_rothermel(current, next, row, column);
+        }
+    }
+    return burning_next;
 }
 
 /**

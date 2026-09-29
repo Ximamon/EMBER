@@ -37,12 +37,18 @@ GridBuffers::GridBuffers(std::size_t width, std::size_t height)
     for (auto& fuels : fuels_) {
         fuels.resize(count, 0.0F);
     }
-    
-    // moisture_, vegetation_, and elevation_ only need a single buffer because 
-    // they are static terrain properties (they do not change during the fire).
+    // burn_fractions_ tracks the Rothermel model's accumulated P_burn per cell and is
+    // double-buffered for the same reason as fuels_: it changes every step.
+    for (auto& burn_fractions : burn_fractions_) {
+        burn_fractions.resize(count, 0.0F);
+    }
+
+    // moisture_, vegetation_, elevation_, and fuel_classes_ only need a single buffer
+    // because they are static terrain properties (they do not change during the fire).
     moisture_.resize(count, 0.0F);
     vegetation_.resize(count, 0.0F);
     elevation_.resize(count, 0.0F);
+    fuel_classes_.resize(count, 0U);
 }
 
 /**
@@ -50,7 +56,8 @@ GridBuffers::GridBuffers(std::size_t width, std::size_t height)
  */
 GridView GridBuffers::current_view() noexcept {
     return {width_, height_, states_[current_index_].data(), fuels_[current_index_].data(),
-            moisture_.data(), vegetation_.data(), elevation_.data()};
+            moisture_.data(), vegetation_.data(), elevation_.data(),
+            fuel_classes_.data(), burn_fractions_[current_index_].data()};
 }
 
 /**
@@ -60,7 +67,8 @@ GridView GridBuffers::next_view() noexcept {
     // Fast mathematical trick to alternate between index 0 and 1 without using an 'if' branch
     const auto next_index = 1U - current_index_;
     return {width_, height_, states_[next_index].data(), fuels_[next_index].data(),
-            moisture_.data(), vegetation_.data(), elevation_.data()};
+            moisture_.data(), vegetation_.data(), elevation_.data(),
+            fuel_classes_.data(), burn_fractions_[next_index].data()};
 }
 
 /**
@@ -68,7 +76,8 @@ GridView GridBuffers::next_view() noexcept {
  */
 ConstGridView GridBuffers::current_view() const noexcept {
     return {width_, height_, states_[current_index_].data(), fuels_[current_index_].data(),
-            moisture_.data(), vegetation_.data(), elevation_.data()};
+            moisture_.data(), vegetation_.data(), elevation_.data(),
+            fuel_classes_.data(), burn_fractions_[current_index_].data()};
 }
 
 /**

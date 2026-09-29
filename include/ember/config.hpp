@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "ember/fuel_model.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -55,6 +57,14 @@ enum class ExportFormat {
  * - Cuda: Direct on-device VRAM generation via initialize_synthetic_kernel.
  */
 enum class SyntheticInitBackend { Cpu, OpenMp, Cuda };
+
+/**
+ * @enum SpreadModel
+ * @brief Selects which per-neighbor spread calculation drives ignition.
+ * - Empirical: the original normalized model (docs/model.md). Default; unchanged behavior.
+ * - Rothermel: the physical surface fire spread rate model (docs/rothermel-model.md).
+ */
+enum class SpreadModel { Empirical, Rothermel };
 
 /**
  * @class SimulationConfig
@@ -109,6 +119,19 @@ struct SimulationConfig {
     float burn_rate{0.20F};
     /// @brief Slope scale factor. Must be a positive value.
     float slope_scale{0.25F};
+
+    /// @brief Which per-neighbor spread calculation drives ignition. Default preserves existing behavior.
+    SpreadModel spread_model{SpreadModel::Empirical};
+    /// @brief Real wind speed for the Rothermel model, in m/s. Unlike wind_strength this is physical, not a [0,1] dial. Must be non-negative.
+    float wind_speed_m_s{0.0F};
+    /// @brief Simulated seconds per step for the Rothermel model. Must be a positive value.
+    float rothermel_time_step_s{60.0F};
+    /// @brief Cell size in meters for the Rothermel model on synthetic grids (ignored when --terrain supplies a real cell size). Must be a positive value.
+    float rothermel_cell_size_m{10.0F};
+    /// @brief Below this spread rate (m/s) a front is treated as not advancing, per the Rothermel model. Must be non-negative.
+    float min_spread_rate_m_s{0.0017F};
+    /// @brief Default fuel family for synthetic (non-terrain) grids under the Rothermel model.
+    FuelClass synthetic_fuel_class{FuelClass::Shrub};
 
     /// @brief Minimum fuel value for the terrain. Must be in the range [0, 1].
     float min_fuel{0.40F};
