@@ -58,6 +58,10 @@ real fuel categories and a real combustible mask, with uniform fuel/moisture and
 flat elevation. It is not calibrated to physical fire duration. CUDA currently uses
 a different model and rejects real-terrain input.
 
+For aligned metric elevation and a dated ERA5 wind snapshot, see the
+[real-environment workflow](docs/real-environment.md). It prepares a portable case
+online and runs and renders it offline on scalar CPU, with explicit model assumptions.
+
 ## Run synthetic terrain
 
 ```sh

@@ -16,5 +16,7 @@ __pycache__/
 *.tif
 *.tiff
 .venv/
+.venv-terrain/
 *.asc.tmp
 *.aux.xml
+.vs

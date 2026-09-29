@@ -75,6 +75,9 @@ struct SimulationConfig {
     bool verify_cuda_initialization{false};
     /// @brief Path to an ESRI ASCII Grid (.asc) file representing real geographic terrain.
     std::string terrain_path;
+    /// @brief Optional aligned elevation raster in metres; requires scalar CPU terrain mode.
+    std::string elevation_path;
+    std::shared_ptr<const std::vector<float>> elevation;
     /// @brief Immutable shared pointer to parsed terrain data, loaded once per batch.
     std::shared_ptr<const TerrainData> terrain;
     /// @brief True if width was explicitly specified via CLI, used to detect conflicts with terrain dimensions.

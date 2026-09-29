@@ -21,4 +21,4 @@ jobs:
       - name: C++ regression and terrain tests
         run: ctest --test-dir build --output-on-failure
       - name: Offline geospatial integration tests
-        run: python -m unittest discover -s tests -p 'test_terrain_tools.py' -v
+        run: python -m unittest discover -s tests -p 'test_*tools.py' -v
