@@ -56,6 +56,10 @@ struct GridView {
     float* vegetation{};
     /// @brief Pointer to the array of elevation values for each cell in the grid. Each value represents the elevation of the cell.
     float* elevation{};
+    /// @brief Pointer to the array of fuel family codes (see ember::FuelClass) for each cell, used by the Rothermel spread model.
+    std::uint8_t* fuel_class{};
+    /// @brief Pointer to the array of accumulated burned fractions per cell ([0, 1]), used by the Rothermel spread model.
+    float* burn_fraction{};
 };
 
 /**
@@ -79,6 +83,10 @@ struct ConstGridView {
     const float* vegetation{};
     /// @brief Const pointer to the array of elevation values for each cell in the grid. Each value represents the elevation of the cell.
     const float* elevation{};
+    /// @brief Const pointer to the array of fuel family codes (see ember::FuelClass) for each cell, used by the Rothermel spread model.
+    const std::uint8_t* fuel_class{};
+    /// @brief Const pointer to the array of accumulated burned fractions per cell ([0, 1]), used by the Rothermel spread model.
+    const float* burn_fraction{};
 };
 
 /**
@@ -127,12 +135,14 @@ private:
     std::vector<CellState> states_[2];
     /// @brief Double buffers holding fuel values.
     std::vector<float> fuels_[2];
+    std::vector<float> burn_fractions_[2];
     /// @brief Single buffer holding static moisture values.
     std::vector<float> moisture_;
     /// @brief Single buffer holding static vegetation density values.
     std::vector<float> vegetation_;
     /// @brief Single buffer holding static elevation values.
     std::vector<float> elevation_;
+    std::vector<std::uint8_t> fuel_classes_;
 };
 
 /// @brief Converts a CellState enum value to its corresponding string representation.
