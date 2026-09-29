@@ -19,6 +19,10 @@ def render(directory, scenario=0, output=None):
     width, height = meta['width'], meta['height']
     codes = np.zeros((height, width), dtype=np.uint16)
     states = np.zeros((height, width), dtype=np.uint8)
+    elevations = np.zeros((height, width), dtype=np.float32)
+    has_elevation = meta.get('elevation_units') == 'metres'
+    case_path = directory / 'case-run.json'
+    case = json.loads(case_path.read_text(encoding='utf-8')) if case_path.exists() else None
     state_ids = {'Unburned': 0, 'Burning': 1, 'Burned': 2, 'Non-combustible': 3}
     with (directory / f'scenario_{scenario:06d}_final.csv').open() as stream:
         count = 0
@@ -30,6 +34,7 @@ def render(directory, scenario=0, output=None):
             if int(row['valid']) != int(codes[y, x] != 0):
                 raise ValueError('inconsistent NoData mask')
             states[y, x] = state_ids[row['state']]
+            elevations[y, x] = float(row['elevation'])
             count += 1
         if count != width * height:
             raise ValueError('truncated scenario CSV')
@@ -51,8 +56,8 @@ def render(directory, scenario=0, output=None):
     cell = meta['cell_size_m']
     x0, y0 = meta['xllcorner'] / 1000, meta['yllcorner'] / 1000
     extent = [x0, x0 + width * cell / 1000, y0, y0 + height * cell / 1000]
-    fig, axes = plt.subplots(1, 2, figsize=(14, 8.5))
-    fig.subplots_adjust(left=.07, right=.97, top=.82, bottom=.26, wspace=.17)
+    fig, axes = plt.subplots(1, 3 if has_elevation else 2, figsize=(19 if has_elevation else 14, 8.5))
+    fig.subplots_adjust(left=.07, right=.97, top=.77 if case else .82, bottom=.26, wspace=.24)
     for ax in axes:
         ax.imshow(categorical, cmap=cmap, norm=norm, origin='upper', extent=extent, interpolation='nearest')
         ax.set_xlabel('Este UTM (km)'); ax.set_ylabel('Norte UTM (km)')
@@ -69,15 +74,40 @@ def render(directory, scenario=0, output=None):
     overlay = np.zeros((height, width, 4))
     overlay[states == 2] = matplotlib.colors.to_rgba('#171b22')
     overlay[states == 1] = matplotlib.colors.to_rgba('#ff4d18')
-    axes[1].imshow(overlay, origin='upper', extent=extent, interpolation='nearest')
+    axes[-1].imshow(overlay, origin='upper', extent=extent, interpolation='nearest')
     axes[0].set_title('Mapa de clases · códigos ZAFM conservados', fontsize=11)
-    axes[1].set_title(f'Escenario {scenario} · {summary["steps_executed"]} iteraciones\n'
+    if has_elevation:
+        relief = axes[1].imshow(np.ma.masked_where(codes == 0, elevations), cmap='terrain',
+                               origin='upper', extent=extent, interpolation='nearest', zorder=.5)
+        axes[1].set_title('Elevación de superficie · metros', fontsize=11)
+        fig.colorbar(relief, ax=axes[1], shrink=.65, pad=.02, label='m')
+    axes[-1].set_title(f'Escenario {scenario} · {summary["steps_executed"]} iteraciones\n'
                       f'{float(summary["burned_hectares"]):.2f} ha afectadas · '
                       f'{float(summary["combustible_burned_percent"]):.2f}% del combustible', fontsize=11)
     fig.suptitle('EMBER | Propagación sobre terreno real', x=.07, ha='left', y=.96, fontsize=22, weight='bold')
     fig.text(.07, .905, f'EPSG:{meta["epsg"]} · celdas de {cell:g} m · '
              f'combustible uniforme {meta["fuel"]:.2g} · humedad uniforme {meta["moisture"]:.2g}', fontsize=11)
-    fig.text(.07, .865, 'Modelo estocástico sin calibrar · relieve plano · las iteraciones no representan minutos', fontsize=10)
+    relief_note = 'relieve real remuestreado' if has_elevation else 'relieve plano'
+    fig.text(.07, .865, f'Modelo estocástico sin calibrar · {relief_note} · las iteraciones no representan minutos', fontsize=10)
+    if case:
+        weather = case['weather']
+        wind = case['wind_conversion']
+        fig.text(.07, .825, f'ERA5 · {weather["timestamp_utc"]} · viento desde '
+                 f'{weather["values"]["wind_direction_10m"]:g}° a {weather["values"]["wind_speed_10m"]:g} m/s · '
+                 f'referencia heurística {wind["reference_m_s"]:g} m/s · condiciones constantes', fontsize=10)
+        angle = np.deg2rad(wind['wind_direction_degrees'])
+        ax = axes[-1]
+        moving = weather['values']['wind_speed_10m'] > 0
+        if moving:
+            ax.annotate('', xy=(.85 + .09 * np.cos(angle), .87 + .09 * np.sin(angle)),
+                        xytext=(.85, .87), xycoords='axes fraction',
+                        arrowprops=dict(arrowstyle='->', color='#1565c0', lw=3))
+        ax.text(.72, .72, 'Viento hacia' if moving else 'Calma', transform=ax.transAxes, fontsize=9,
+                bbox=dict(facecolor='white', alpha=.85, edgecolor='none'))
+        copernicus = any('copernicus-dem-30m.s3' in source['source'] for source in case['elevation']['sources'])
+        source_label = 'Copernicus DEM GLO-30 / DLR / Airbus / UE / ESA' if copernicus else 'DEM local'
+        fig.text(.07, .012, f'Relieve: {source_label} (ver inputs/elevation.json). '
+                 'Meteorología: ERA5 · C3S / ECMWF vía Open-Meteo · CC BY 4.0.', fontsize=8)
     handles = [Patch(color=colors[int(c)], label=f'{c} · {labels[int(c)]}' if int(c) in labels else f'ZAFM {c}') for c in present]
     handles += [Patch(color='#171b22', label='Quemado'), Patch(color='#ff4d18', label='Ardiendo'),
                 plt.Line2D([], [], marker='*', color='#ffeb3b', markeredgecolor='black', linestyle='', label='Ignición')]

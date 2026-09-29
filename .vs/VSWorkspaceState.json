@@ -1,0 +1,22 @@
+{
+  "OutputFoldersPerTargetSystem": {
+    "Local Machine": [
+      "out\\build\\x64-Debug",
+      "out\\install\\x64-Debug"
+    ]
+  },
+  "ExpandedNodes": [
+    "",
+    "\\build-avx2-scalar",
+    "\\build-avx2-scalar\\ember.dir",
+    "\\build-avx2-scalar\\ember.dir\\Release",
+    "\\output",
+    "\\results",
+    "\\results\\mentor-demo",
+    "\\results\\results_base_m4",
+    "\\results\\results_base_server",
+    "\\src"
+  ],
+  "SelectedNode": "\\build-avx2-scalar\\ember.dir\\Release",
+  "PreviewInSolutionExplorer": false
+}

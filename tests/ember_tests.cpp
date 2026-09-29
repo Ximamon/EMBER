@@ -1,3 +1,13 @@
+/**
+ * @file ember_tests.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief Core unit and regression tests for the EMBER wildfire simulation engine.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
+
 #include "ember/cli.hpp"
 #include "ember/export.hpp"
 #include "ember/fuel_model.hpp"

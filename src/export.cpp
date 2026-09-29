@@ -2,7 +2,7 @@
  * @file export.cpp
  * @author Juaquín Berná (@Ximamon)
  * @brief Implementation of the export functionality.
- * @version 0.1
+ * @version 0.5
  * @date 29/7/2026
  * 
  * 
@@ -38,6 +38,9 @@ std::ofstream open_output(const std::filesystem::path& path, std::ios::openmode 
 
 } // namespace
 
+/**
+ * @brief Exports simulation grid state and environmental layers to a CSV file.
+ */
 void export_grid_csv(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain) {
     auto output = open_output(path);
     output << "x,y,state,fuel,moisture,vegetation,elevation";
@@ -59,6 +62,9 @@ void export_grid_csv(const std::filesystem::path& path, ConstGridView grid, cons
     }
 }
 
+/**
+ * @brief Exports simulation grid cell states as a binary PPM image.
+ */
 void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid, const TerrainData* terrain) {
     auto output = open_output(path, std::ios::out | std::ios::binary);
     output << "P6\n" << grid.width << ' ' << grid.height << "\n255\n";
@@ -88,6 +94,9 @@ void export_grid_ppm(const std::filesystem::path& path, ConstGridView grid, cons
     }
 }
 
+/**
+ * @brief Exports scenario parameters and GIS metadata to a JSON descriptor file.
+ */
 void export_terrain_run(const SimulationConfig& config) {
     const auto& t = *config.terrain;
     const auto directory = std::filesystem::path(config.output_directory);
@@ -98,7 +107,9 @@ void export_terrain_run(const SimulationConfig& config) {
            << ",\n  \"xllcorner\": " << t.xllcorner << ", \"yllcorner\": " << t.yllcorner
            << ",\n  \"cell_size_m\": " << t.cell_size_m
            << ",\n  \"fuel\": " << config.terrain_fuel << ", \"moisture\": " << config.terrain_moisture
-           << ",\n  \"vegetation\": 1, \"elevation\": 0,\n  \"seed\": " << config.seed
+           << ",\n  \"vegetation\": 1, \"elevation\": " << (config.elevation ? "null" : "0")
+           << ", \"elevation_units\": " << (config.elevation ? "\"metres\"" : "null")
+           << ",\n  \"seed\": " << config.seed
            << ",\n  \"base_spread\": " << config.base_spread << ", \"burn_rate\": " << config.burn_rate
            << ",\n  \"wind_direction_degrees\": " << config.wind_direction_degrees
            << ", \"wind_strength\": " << config.wind_strength
@@ -121,6 +132,9 @@ void export_terrain_run(const SimulationConfig& config) {
     }
 }
 
+/**
+ * @brief Exports per-scenario statistics and aggregated batch summary metrics to CSV.
+ */
 void export_summary_csv(const std::filesystem::path& path, const BatchStatistics& statistics) {
     auto output = open_output(path);
     

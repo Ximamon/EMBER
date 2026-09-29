@@ -1,0 +1,27 @@
+==================================================
+CURIOSITY - SINGLE-NODE CPU BENCHMARK
+Job ID: 4153
+Node: gpu003
+Date: Mon Sep 28 03:04:02 PM PDT 2026
+==================================================
+EMBER
+Grid: 2048 x 2048
+Maximum steps: 2048
+Scenarios: 80
+Seed: 42
+Initialization time: 13.690345 s
+Simulation time: 2472.619753 s
+  ├── Stencil compute: 2472.565941 s (100.00 %)
+  └── Buffer swap:     0.01 s (0.00 %)
+Execution time: 2486.310098 s
+Mean scenario time: 31.078876 s
+Mean step time: 15.092 ms
+Cell updates: 687194767360
+Throughput: 277921733 cell updates/s
+Mean burned area: 84.480 %
+Completed scenarios: 80
+Extinguished scenarios: 0
+Max-step scenarios: 80
+Summary: results/benchmarking/curiosity//summary.csv
+==================================================
+Execution completed successfully on Curiosity CPU.

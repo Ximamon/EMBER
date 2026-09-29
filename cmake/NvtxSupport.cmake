@@ -16,7 +16,7 @@ function(ember_configure_nvtx TARGET_NAME)
         return()
     endif()
 
-    # Buscar cabecera nvtx3/nvToolsExt.h en las rutas del sistema y del Toolkit CUDA
+    # Search for nvtx3/nvToolsExt.h in system paths and CUDA Toolkit include directories
     find_path(NVTX3_INCLUDE_DIR
         NAMES nvtx3/nvToolsExt.h
         HINTS
@@ -36,7 +36,7 @@ function(ember_configure_nvtx TARGET_NAME)
         # NVTX3 dynamically loads libnvToolsExt using dlopen; requires libdl on Linux
         target_link_libraries(${TARGET_NAME} PRIVATE ${CMAKE_DL_LIBS})
     else()
-        message(WARNING "EMBER_ENABLE_NVTX is active but doesnt found 'nvtx3/nvToolsExt.h'. Compiling with no-op ranges at zero cost.")
+        message(WARNING "EMBER_ENABLE_NVTX is active but did not find 'nvtx3/nvToolsExt.h'. Compiling with no-op ranges at zero cost.")
         target_compile_definitions(${TARGET_NAME} PUBLIC EMBER_ENABLE_NVTX=0)
     endif()
 endfunction()

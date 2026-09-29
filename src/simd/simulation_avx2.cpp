@@ -1,5 +1,14 @@
-#include "ember/simulation.hpp"
+/**
+ * @file simulation_avx2.cpp
+ * @author Juaquín Berná (@Ximamon)
+ * @brief SIMD AVX2 optimized wildfire simulation step execution.
+ * @version 0.5
+ * @date 29/7/2026
+ * 
+ * 
+ */
 
+#include "ember/simulation.hpp"
 #include "ember/random.hpp"
 
 #include <immintrin.h>
@@ -13,6 +22,10 @@ namespace {
 
 constexpr float inverse_sqrt_two = 0.70710678118654752440F;
 
+/**
+ * @struct NeighborDirection
+ * @brief Offsets defining a 2D coordinate delta for Moore neighborhood stencil traversal.
+ */
 struct NeighborDirection {
     int row_offset;
     int column_offset;
@@ -23,15 +36,27 @@ constexpr std::array<NeighborDirection, 8> neighbor_directions{{
     {0, 1},   {1, -1}, {1, 0},  {1, 1},
 }};
 
+/**
+ * @brief Casts a size_t index to uint64_t for random hash mixing.
+ */
 std::uint64_t as_u64(std::size_t value) {
     return static_cast<std::uint64_t>(value);
 }
 
+/**
+ * @brief Clamps eight single-precision floats in an AVX2 vector register to [minimum, maximum].
+ */
 __m256 clamp_ps(__m256 value, float minimum, float maximum) {
     return _mm256_min_ps(_mm256_max_ps(value, _mm256_set1_ps(minimum)),
                          _mm256_set1_ps(maximum));
 }
 
+/**
+ * @brief Loads 8 contiguous uint8_t CellState values and compares them against an expected state.
+ * 
+ * Unpacks 8 bytes to 32-bit integers in a 256-bit register and performs an equality comparison,
+ * returning a bitmask vector (all 1s for matching lanes, 0s otherwise).
+ */
 __m256 load_state_mask(const CellState* states, CellState expected) {
     const __m128i state_bytes = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(states));
     const __m256i state_values = _mm256_cvtepu8_epi32(state_bytes);
@@ -41,6 +66,18 @@ __m256 load_state_mask(const CellState* states, CellState expected) {
 
 } // namespace
 
+/**
+ * @brief Performs an optimized simulation step using x86_64 AVX2 SIMD vector instructions.
+ * 
+ * Processes the 2D Moore stencil across 8 contiguous cells per SIMD vector register:
+ * 1. Computes burning fuel consumption vectorized via `_mm256_blendv_ps`.
+ * 2. Prunes inactive neighbor directions using `_mm256_testz_si256` (skips computation if no lane has a burning neighbor).
+ * 3. Vectorizes topographic slope, wind projection, and fuel moisture equations across 8 lanes simultaneously.
+ * 4. Falls back to scalar evaluation on boundary cells where 8-lane vectorization would exceed row limits.
+ * 
+ * @param step_index Current simulation timestep index.
+ * @return std::size_t Total number of cells burning at the conclusion of this step.
+ */
 std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
     const ConstGridView current = static_cast<const GridBuffers&>(grid_).current_view();
     auto next = grid_.next_view();
@@ -65,8 +102,11 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
             continue;
         }
 
+        // Handle leftmost boundary column in scalar mode
         burning_next += step_cell(current, next, step_index, row, 0);
         std::size_t column = 1;
+
+        // Vectorized interior loop: processes 8 cells per iteration
         for (; column <= width - 9; column += 8) {
             const std::size_t index = row_start + column;
             const __m256 current_fuel = _mm256_loadu_ps(current.fuel + index);
@@ -83,6 +123,7 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
             __m256 target_fuel = _mm256_setzero_ps();
             __m256 moisture_factor = _mm256_setzero_ps();
 
+            // Iterate through the 8 Moore stencil neighbor directions
             for (const auto& direction : neighbor_directions) {
                 const std::size_t neighbor_row =
                     static_cast<std::size_t>(static_cast<std::ptrdiff_t>(row) + direction.row_offset);
@@ -93,6 +134,8 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
                 const __m256 burning_neighbors =
                     load_state_mask(current.state + neighbor_index, CellState::Burning);
                 const __m256i burning_neighbor_values = _mm256_castps_si256(burning_neighbors);
+
+                // Early exit: if no cell in this 8-lane batch has a burning neighbor in this direction, skip!
                 if (_mm256_testz_si256(burning_neighbor_values, burning_neighbor_values) != 0) {
                     continue;
                 }
@@ -101,6 +144,8 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
                 _mm256_store_si256(
                     reinterpret_cast<__m256i*>(burning_lanes.data()),
                     _mm256_castps_si256(burning_neighbors));
+
+                // Lazy load target cell attributes on first detected burning neighbor
                 if (!target_vectors_loaded) {
                     const __m256 target_moisture = _mm256_loadu_ps(current.moisture + index);
                     target_vegetation = _mm256_loadu_ps(current.vegetation + index);
@@ -152,6 +197,7 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
                 current_states[lane] = static_cast<int>(current.state[index + lane]);
             }
 
+            // Resolve next state for each of the 8 lanes
             for (std::size_t lane = 0; lane < current_states.size(); ++lane) {
                 const std::size_t cell_index = index + lane;
                 const auto state = static_cast<CellState>(current_states[lane]);
@@ -169,12 +215,13 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
                     continue;
                 }
                 
-                // If any neighbor isnt burning, we can skip the ignition probability calculation for this cell.
+                // If no neighbor was burning, cell remains Unburned (short-circuit)
                 if (probability_not_ignited[lane] >= 1.0) {
                     next.state[cell_index] = CellState::Unburned;
                     continue;
                 }
 
+                // Stochastic draw congruent with the scalar CPU baseline
                 const double ignition_probability = 1.0 - probability_not_ignited[lane];
                 const double draw = uniform01(keyed_hash(
                     scenario_seed_, random_tag::spread, as_u64(step_index), as_u64(cell_index)));
@@ -187,6 +234,7 @@ std::size_t WildfireSimulation::step_avx2(std::size_t step_index) {
             }
         }
 
+        // Process remaining trailing columns in scalar mode
         for (; column < width; ++column) {
             burning_next += step_cell(current, next, step_index, row, column);
         }

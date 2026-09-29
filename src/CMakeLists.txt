@@ -20,7 +20,6 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/simd   
 )
 
 # Link global flags
