@@ -421,6 +421,12 @@ namespace ember {
         if (state_curr_) return true;
         const nvtx::ScopedRange range("cuda.allocate", nvtx::purple, 2U);
         const auto start = std::chrono::steady_clock::now();
+
+        // Crear el stream persistente no bloqueante
+        if (stream_ == nullptr) {
+            CUDA_CHECK(cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking));
+        }
+
         const auto bytes_state = cell_count_ * sizeof(CellState);
         const auto bytes_float = cell_count_ * sizeof(float);
         const auto allocate_one = [](auto** pointer, std::size_t bytes) {
@@ -450,6 +456,12 @@ namespace ember {
     void CudaWorkspace::release(double& seconds) noexcept {
         const nvtx::ScopedRange range("cuda.free", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
+
+        if (stream_) {
+            cudaStreamDestroy(stream_);
+            stream_ = nullptr;
+        }
+
         cudaFree(state_curr_); cudaFree(state_next_);
         cudaFree(fuel_curr_); cudaFree(fuel_next_);
         cudaFree(elevation_); cudaFree(moisture_); cudaFree(vegetation_);
@@ -526,7 +538,7 @@ namespace ember {
             const uint64_t seed = ember::scenario_seed(config.seed, static_cast<uint64_t>(scenario_id));
             const unsigned int threads = 256;
             const unsigned int blocks = static_cast<unsigned int>((num_cells + threads - 1) / threads);
-            initialize_synthetic_kernel<<<blocks, threads>>>(
+            initialize_synthetic_kernel<<<blocks, threads, 0, workspace.stream_>>>(
                 num_cells, (config.height / 2) * config.width + config.width / 2, seed,
                 config.min_fuel, config.max_fuel, config.min_moisture, config.max_moisture,
                 config.min_vegetation, config.max_vegetation, config.min_elevation, config.max_elevation,
@@ -535,7 +547,7 @@ namespace ember {
                 d_state_curr, d_state_next, d_fuel_curr, d_fuel_next,
                 d_moisture, d_vegetation, d_elevation);
             CUDA_CHECK(cudaGetLastError());
-            CUDA_CHECK(cudaDeviceSynchronize());
+            CUDA_CHECK(cudaStreamSynchronize(workspace.stream_));
             timings.device_initialization_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
             if (config.verify_cuda_initialization) {
@@ -596,7 +608,7 @@ namespace ember {
         {
             const nvtx::ScopedRange timesteps_range("cuda.timesteps", nvtx::orange, 2U);
             for (std::size_t step = 0; step < config.max_steps; ++step) {
-                step_stencil_kernel<<<grid_dim, block_dim>>>(
+                step_stencil_kernel<<<grid_dim, block_dim, 0, workspace.stream_>>>(
                     width, height, scenario_seed, static_cast<uint64_t>(step),
                     static_cast<float>(config.base_spread), static_cast<float>(config.burn_rate),
                     static_cast<float>(config.wind_strength), wind_x, wind_y,
@@ -631,10 +643,10 @@ namespace ember {
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
-        // Block host CPU until all enqueued GPU kernels finish
+        // Wait only for the queue of this specific stream to empty, not the entire device.
         {
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
-            CUDA_CHECK(cudaDeviceSynchronize());
+            CUDA_CHECK(cudaStreamSynchronize(workspace.stream_));
         }
 
         const auto t_end = std::chrono::steady_clock::now();

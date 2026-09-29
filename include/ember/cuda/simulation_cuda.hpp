@@ -13,6 +13,7 @@
 #include "ember/config.hpp"
 #include "ember/grid.hpp"
 
+#include <cuda_runtime.h>
 #include <cstddef>
 #include <chrono>
 
@@ -85,6 +86,9 @@ private:
                                      CudaWorkspace&, CudaScenarioTimings&);
     friend bool sync_and_download_scenario_cuda(const SimulationConfig&, GridBuffers&,
                                                 CudaWorkspace&, std::size_t&, CudaScenarioTimings&);
+
+    /// @brief CUDA stream for asynchronous operations.
+    cudaStream_t stream_{};
 
     /// @brief Number of grid cells managed by this device workspace.
     std::size_t cell_count_{};
