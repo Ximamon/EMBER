@@ -62,6 +62,31 @@ For aligned metric elevation and a dated ERA5 wind snapshot, see the
 [real-environment workflow](docs/real-environment.md). It prepares a portable case
 online and runs and renders it offline on scalar CPU, with explicit model assumptions.
 
+## GUI launcher (Windows)
+
+`scripts/terrain_gui.py` is a Tkinter front-end for the three-command workflow
+above: it can build `ember` with CMake, run the simulation and call
+`tools/terrain/render.py`, then display the resulting PNG in the window. It
+only drives the existing scripts and executable as subprocesses; nothing in
+`tools/terrain/` is modified.
+
+```sh
+python scripts/terrain_gui.py
+```
+
+To get a double-clickable `.exe` that does not require an activated Python
+environment, build it once with PyInstaller from a venv that has it installed:
+
+```sh
+pyinstaller --name EmberTerrainGUI --onefile --windowed --distpath dist \
+  --workpath build/pyinstaller --specpath build scripts/terrain_gui.py
+```
+
+The resulting `dist/EmberTerrainGUI.exe` still needs CMake and a C++ compiler
+on the machine the first time it builds `ember`, and a Python interpreter with
+`numpy`/`matplotlib` (see its "Configuración" tab, which can set up a `.venv`
+automatically) to run `render.py`.
+
 ## Run synthetic terrain
 
 ```sh

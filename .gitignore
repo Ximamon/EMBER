@@ -20,3 +20,5 @@ __pycache__/
 *.asc.tmp
 *.aux.xml
 .vs
+/dist/
+scripts/terrain_gui_config.json
