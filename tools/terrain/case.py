@@ -12,6 +12,7 @@ import tempfile
 import numpy as np
 import rasterio
 from rasterio.warp import transform
+from prepare import prepare as prepare_terrain, centre_epsg, SOURCE
 
 from environment import (prepare_elevation, prepare_weather, select_weather, wind_parameters,
                          parse_time, sha256, write_json, utc_now)
@@ -25,20 +26,35 @@ def read_json(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
 
 
-def prepare_case(terrain, output, timestamp, dem=None):
+def prepare_case(terrain, output, timestamp, dem=None, longitude=None, latitude=None,
+                 size=None, resolution=None, source=SOURCE):
     """Publish a complete portable package only after all inputs have been validated."""
     parse_time(timestamp)
-    terrain, output = Path(terrain).resolve(), Path(output).resolve()
+    if (longitude is None) != (latitude is None):
+        raise ValueError('latitude and longitude must be supplied together')
+    if longitude is not None:
+        if terrain is not None:
+            raise ValueError('coordinates cannot be combined with --terrain')
+        centre_epsg(longitude, latitude)
+    elif size is not None or resolution is not None:
+        raise ValueError('size and resolution require coordinates')
+    else:
+        terrain = Path(terrain or ROOT / 'data/terrain/collserola.asc').resolve()
+    output = Path(output).resolve()
     if output.exists():
         raise ValueError('case output already exists; choose a new directory')
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.ember-case-', dir=output.parent) as temporary:
         staging = Path(temporary) / 'case'
         staging.mkdir()
-        for extension in ('.asc', '.prj', '.json'):
-            path = terrain.with_suffix(extension)
-            if extension != '.json' or path.exists():
-                shutil.copyfile(path, staging / ('terrain' + extension))
+        if longitude is not None:
+            prepare_terrain(source, staging / 'terrain.asc', longitude, latitude,
+                            512 if size is None else size, 10.0 if resolution is None else resolution)
+        else:
+            for extension in ('.asc', '.prj', '.json'):
+                path = terrain.with_suffix(extension)
+                if extension != '.json' or path.exists():
+                    shutil.copyfile(path, staging / ('terrain' + extension))
         with rasterio.open(staging / 'terrain.asc') as grid:
             x, y = grid.transform * (grid.width / 2, grid.height / 2)
             lon, lat = transform(grid.crs, 'EPSG:4326', [x], [y])
@@ -49,7 +65,7 @@ def prepare_case(terrain, output, timestamp, dem=None):
                         software=dict(python=platform.python_version(), numpy=np.__version__,
                                       rasterio=rasterio.__version__, gdal=rasterio.__gdal_version__),
                         preparation_code_sha256={name: sha256(Path(__file__).with_name(name))
-                                                 for name in ('case.py', 'environment.py')},
+                                                 for name in ('case.py', 'environment.py', 'prepare.py')},
                         assumptions=['Scalar CPU only.', 'Fixed hourly weather at the crop centre.',
                                      'Uniform fuel and fuel moisture are explicit model assumptions.'])
         write_json(staging / 'case.json', manifest)
@@ -128,7 +144,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     actions = parser.add_subparsers(dest='action', required=True)
     prepare = actions.add_parser('prepare', help='fetch DEM and ERA5 into a reusable case')
-    prepare.add_argument('--terrain', type=Path, default=ROOT / 'data/terrain/collserola.asc')
+    prepare.add_argument('--terrain', type=Path, help='prepared terrain; defaults to Collserola without coordinates')
+    prepare.add_argument('--latitude', type=float, help='mainland centre latitude in degrees')
+    prepare.add_argument('--longitude', type=float, help='mainland centre longitude in degrees')
+    prepare.add_argument('--size', type=int, help='square grid side in cells (default: 512 with coordinates)')
+    prepare.add_argument('--resolution', type=float, help='cell size in metres (default: 10 with coordinates)')
     prepare.add_argument('--dem', type=Path, help='local single-band GeoTIFF with heights in metres')
     prepare.add_argument('--time', required=True, help='exact hour in UTC: YYYY-MM-DDTHH:00Z')
     prepare.add_argument('--output', type=Path, required=True)
@@ -148,7 +168,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.action == 'prepare':
-            output = prepare_case(args.terrain, args.output, args.time, args.dem)
+            output = prepare_case(args.terrain, args.output, args.time, args.dem,
+                                  args.longitude, args.latitude, args.size, args.resolution)
         else:
             output = run_case(args.directory, args.executable, args.output, args.wind_reference,
                               args.steps, args.scenarios, args.seed, args.terrain_fuel, args.terrain_moisture,

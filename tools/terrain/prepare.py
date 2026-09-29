@@ -20,13 +20,19 @@ ATTRIBUTION = ('Sánchez et al. (2025), ZAFM Europe v1.0, '
                'doi:10.5281/zenodo.18788338. © Paula Sánchez 2025. CC BY 4.0.')
 
 
-def prepare(source, output, longitude=2.10, latitude=41.45, size=512, resolution=10.0):
+def centre_epsg(longitude, latitude):
     if not (math.isfinite(longitude) and math.isfinite(latitude) and
-            0 <= longitude <= 6 and 0 < latitude < 84):
-        raise ValueError('v1 requires a centre in UTM zone 31N (0–6° E, 0–84° N)')
+            -9.5 <= longitude <= 3.5 and 36 <= latitude <= 44):
+        raise ValueError('centre must be in the mainland extent (9.5° W–3.5° E, 36–44° N)')
+    # This bounds the mainland workflow; source coverage determines valid cells.
+    return 32600 + int((longitude + 180) // 6) + 1
+
+
+def prepare(source, output, longitude=2.10, latitude=41.45, size=512, resolution=10.0):
+    epsg = centre_epsg(longitude, latitude)
     if not 1 <= size <= 4000 or not math.isfinite(resolution) or resolution <= 0:
         raise ValueError('size must be 1–4000 and resolution must be positive and finite')
-    crs = CRS.from_epsg(32631)
+    crs = CRS.from_epsg(epsg)
     xs, ys = transform('EPSG:4326', crs, [longitude], [latitude])
     half = size * resolution / 2
     dst_transform = from_origin(xs[0] - half, ys[0] + half, resolution, resolution)
@@ -74,7 +80,7 @@ def prepare(source, output, longitude=2.10, latitude=41.45, size=512, resolution
     output.with_suffix('.prj').write_text(crs.to_wkt() + '\n', encoding='utf-8')
     manifest = dict(schema_version=1, doi='10.5281/zenodo.18788338', source=source,
                     source_file='ESP_4326_ZAFM.tif', source_details=source_details,
-                    centre_lon_lat=[longitude, latitude], epsg=32631, bounds=list(bounds),
+                    centre_lon_lat=[longitude, latitude], epsg=epsg, bounds=list(bounds),
                     transform=list(dst_transform)[:6], width=size, height=size,
                     cell_size_m=resolution, resampling='nearest', nodata=0,
                     classes={str(int(c)): int(n) for c, n in zip(codes, counts)},
@@ -90,7 +96,7 @@ def prepare(source, output, longitude=2.10, latitude=41.45, size=512, resolution
                                  'WorldCover baseline 2021; fuel typology baseline 2015–2020.',
                                  'No observed humidity or elevation; simulation steps are not minutes.'],
                     software=dict(rasterio=rasterio.__version__, gdal=rasterio.__gdal_version__, numpy=np.__version__))
-    output.with_suffix('.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n')
+    output.with_suffix('.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     print(f'{output}: {size} × {size}, {resolution:g} m, {manifest["combustible_cells"]} combustible cells')
     return manifest
 

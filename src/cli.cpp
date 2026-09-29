@@ -196,7 +196,7 @@ void print_help(std::ostream& output) {
         "Options:\n"
         "  --width N                 Grid width (default: 512)\n"
         "  --height N                Grid height (default: 512)\n"
-        "  --terrain FILE            ZAFM ASCII grid with .prj (EPSG:32631); CPU only\n"
+        "  --terrain FILE            ZAFM ASCII grid with .prj (WGS84 UTM 29N/30N/31N); CPU only\n"
         "  --elevation FILE          Aligned metric ASCII heights with .prj; scalar CPU only\n"
         "  --terrain-fuel X          Uniform fuel in (0,1] (default: 1)\n"
         "  --terrain-moisture X      Uniform moisture in [0,1] (default: 0.2)\n"

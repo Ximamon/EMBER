@@ -14,6 +14,7 @@ from unittest.mock import patch
 import numpy as np
 import rasterio
 from rasterio.transform import from_origin
+from rasterio.warp import transform
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/terrain'))
@@ -31,6 +32,75 @@ def weather_response():
 
 
 class EnvironmentTests(unittest.TestCase):
+    def test_coordinate_arguments(self):
+        for arguments in (dict(latitude=40), dict(longitude=-4),
+                          dict(latitude=40, longitude=-4, terrain='existing.asc'),
+                          dict(size=32), dict(resolution=20),
+                          dict(latitude=28, longitude=-16),
+                          dict(latitude=float('nan'), longitude=-4)):
+            with self.subTest(arguments=arguments), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / 'case'
+                values = dict(terrain=None, output=output, timestamp=TIME)
+                values.update(arguments)
+                with self.assertRaises(ValueError):
+                    case.prepare_case(**values)
+                self.assertFalse(output.exists())
+
+    def test_coordinate_cases_across_utm_zones(self):
+        executable = Path(os.environ.get('EMBER_EXECUTABLE', ROOT / 'build/ember')).resolve()
+        for longitude, epsg in [(-8, 32629), (-6.0001, 32629), (-6, 32630),
+                                (-4, 32630), (-.0001, 32630), (0, 32631), (2, 32631)]:
+            with self.subTest(longitude=longitude), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                source, dem = directory / 'fuel.tif', directory / 'dem.tif'
+                geometry = dict(width=100, height=100, count=1, crs='EPSG:4326',
+                                transform=from_origin(longitude - .01, 41.01, .0002, .0002))
+                pixels = np.full((100, 100), 102, dtype=np.uint16)
+                pixels[:50, :50] = 91
+                with rasterio.open(source, 'w', driver='GTiff', dtype='uint16', nodata=0, **geometry) as grid:
+                    grid.write(pixels, 1)
+                with rasterio.open(dem, 'w', driver='GTiff', dtype='float32', nodata=-9999, **geometry) as grid:
+                    grid.write(np.full((100, 100), 100, dtype=np.float32), 1)
+                package = directory / 'case'
+                response = json.dumps(weather_response()).encode()
+                with patch.object(environment, 'urlopen', return_value=io.BytesIO(response)):
+                    case.prepare_case(None, package, TIME, dem, longitude, 41, 32, 10, str(source))
+                with rasterio.open(package / 'terrain.asc') as grid, rasterio.open(package / 'elevation.asc') as relief:
+                    self.assertEqual(grid.crs.to_epsg(), epsg)
+                    self.assertEqual(grid.crs, relief.crs)
+                    self.assertEqual(grid.transform, relief.transform)
+                    self.assertEqual(grid.shape, (32, 32))
+                    x, y = grid.transform * (16, 16)
+                    lon, lat = transform(grid.crs, 'EPSG:4326', [x], [y])
+                    self.assertAlmostEqual(lon[0], longitude)
+                    self.assertAlmostEqual(lat[0], 41)
+                    self.assertEqual(int(grid.read(1)[0, 0]), 91)
+                    self.assertEqual(int(grid.read(1)[-1, -1]), 102)
+                metadata = case.read_json(package / 'terrain.json')
+                self.assertEqual(metadata['centre_lon_lat'], [longitude, 41])
+                weather = case.read_json(package / 'weather.json')['requested_coordinates']
+                self.assertAlmostEqual(weather['longitude'], longitude)
+                self.assertAlmostEqual(weather['latitude'], 41)
+                with patch.object(environment, 'urlopen', side_effect=AssertionError('unexpected network')):
+                    case.run_case(package, executable, directory / 'result', 10, steps=3)
+                self.assertEqual(case.read_json(directory / 'result/run.json')['epsg'], epsg)
+                # Equal numeric geometry does not make two different projections compatible.
+                (package / 'elevation.prj').write_text(rasterio.crs.CRS.from_epsg(
+                    32630 if epsg != 32630 else 32629).to_wkt())
+                failed = subprocess.run([str(executable), '--terrain', str(package / 'terrain.asc'),
+                                         '--elevation', str(package / 'elevation.asc')], capture_output=True, text=True)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn('projection does not match', failed.stderr)
+                with patch.object(environment, 'urlopen', side_effect=OSError('offline')):
+                    with self.assertRaises(OSError):
+                        case.prepare_case(None, directory / 'failed', TIME, dem, longitude, 41, 32, 10, str(source))
+                self.assertFalse((directory / 'failed').exists())
+                with rasterio.open(source, 'r+') as grid:
+                    grid.write(np.zeros_like(pixels), 1)
+                with self.assertRaisesRegex(ValueError, 'no combustible'):
+                    case.prepare_case(None, directory / 'empty', TIME, dem, longitude, 41, 32, 10, str(source))
+                self.assertFalse((directory / 'empty').exists())
+
     def test_wind_cardinals_and_reference(self):
         for source, target in [(0, 270), (90, 180), (180, 90), (270, 0), (360, 270)]:
             converted = environment.wind_parameters(5, source, 10)

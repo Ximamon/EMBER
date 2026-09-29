@@ -73,9 +73,15 @@ must therefore block diagonal as well as orthogonal paths.
 `nrows`, `xllcorner`, `yllcorner`, `cellsize`, `NODATA_value`. Header names are
 case-insensitive, unique, and may appear in any order. Values follow north-to-south,
 row-major order. Only integer ZAFM IDs are accepted. `NODATA_value` must be 0.
-The `.prj` sidecar must identify EPSG:32631; v1 intentionally supports this metric
-CRS only. The supplied preparer writes the expected WKT. A same-stem `.json`
+The `.prj` sidecar must identify WGS84 UTM 29N, 30N or 31N (EPSG:32629–32631).
+The supplied preparer selects the zone from the centre and writes the expected WKT. A same-stem `.json`
 manifest is copied into results when present.
+
+For another mainland crop, pass `--latitude`, `--longitude`, `--size` and
+`--resolution` to `tools/terrain/prepare.py`, along with a new `--output` path.
+Defaults remain Collserola, 512 cells per side and 10 metres per cell. For a complete
+case with aligned relief and dated weather in one command, use the
+[coordinate workflow](real-environment.md#prepare-a-mainland-case-by-coordinates).
 
 Limits: at most 100,000 rows/columns and 16 million cells in C++; the preparer
 limits the square target to 4,000 × 4,000 cells and the source read to 64 million.

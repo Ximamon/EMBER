@@ -11,6 +11,23 @@
 #include <stdexcept>
 
 namespace ember {
+namespace {
+int projection_epsg(const std::filesystem::path& path) {
+    auto projection_path = path;
+    projection_path.replace_extension(".prj");
+    std::ifstream projection(projection_path);
+    std::string crs((std::istreambuf_iterator<char>(projection)), std::istreambuf_iterator<char>());
+    // The preparer writes WKT with an EPSG identifier for its metric CRS.
+    for (int epsg : {32629, 32630, 32631}) {
+        const auto code = std::to_string(epsg);
+        if (crs.find("AUTHORITY[\"EPSG\",\"" + code + "\"]") != std::string::npos ||
+            crs.find("ID[\"EPSG\"," + code + "]") != std::string::npos)
+            return epsg;
+    }
+    throw std::invalid_argument("grid needs a .prj sidecar with WGS84 UTM 29N, 30N or 31N (metres)");
+}
+} // namespace
+
 bool known_fuel_code(int code) noexcept {
     switch (code) {
     case 0: case 91: case 92: case 93: case 98:
@@ -61,14 +78,7 @@ std::shared_ptr<const TerrainData> load_terrain(const std::filesystem::path& pat
     if (!std::isfinite(east) || !std::isfinite(north) || terrain->xllcorner < 100000 || east > 900000 ||
         terrain->yllcorner < 0 || north > 10000000)
         throw std::invalid_argument("invalid UTM terrain extent");
-    auto projection_path = path;
-    projection_path.replace_extension(".prj");
-    std::ifstream projection(projection_path);
-    std::string crs((std::istreambuf_iterator<char>(projection)), std::istreambuf_iterator<char>());
-    // v1 deliberately supports only the demo's metric CRS. The preparer writes this exact WKT.
-    if (crs.find("AUTHORITY[\"EPSG\",\"32631\"]") == std::string::npos &&
-        crs.find("ID[\"EPSG\",32631]") == std::string::npos)
-        throw std::invalid_argument("terrain needs a .prj sidecar with EPSG:32631 (metres)");
+    terrain->epsg = projection_epsg(path);
     const auto count = terrain->width * terrain->height;
     terrain->codes.reserve(count);
     terrain->valid.reserve(count);
@@ -113,13 +123,8 @@ std::shared_ptr<const std::vector<float>> load_elevation(
         std::abs(header.at("yllcorner") - terrain.yllcorner) > 1e-7 ||
         std::abs(header.at("cellsize") - terrain.cell_size_m) > 1e-7)
         throw std::invalid_argument("elevation geometry does not match terrain");
-    auto projection_path = path;
-    projection_path.replace_extension(".prj");
-    std::ifstream projection(projection_path);
-    std::string crs((std::istreambuf_iterator<char>(projection)), std::istreambuf_iterator<char>());
-    if (crs.find("AUTHORITY[\"EPSG\",\"32631\"]") == std::string::npos &&
-        crs.find("ID[\"EPSG\",32631]") == std::string::npos)
-        throw std::invalid_argument("elevation needs a .prj sidecar with EPSG:32631 (metres)");
+    if (projection_epsg(path) != terrain.epsg)
+        throw std::invalid_argument("elevation projection does not match terrain");
     auto heights = std::make_shared<std::vector<float>>();
     heights->reserve(terrain.codes.size());
     for (std::size_t i = 0; i < terrain.codes.size(); ++i) {

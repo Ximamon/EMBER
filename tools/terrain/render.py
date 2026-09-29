@@ -43,7 +43,7 @@ def render(directory, scenario=0, output=None):
                        if r['record_type'] == 'scenario' and int(r['scenario_id']) == scenario)
     present = np.unique(codes)
     # Labels retain source IDs deliberately: upstream legend and model table disagree.
-    labels = {0: 'Sin datos', 91: 'Urbano', 92: 'Suelo desnudo', 93: 'No combustible', 98: 'Agua'}
+    labels = {0: 'No data', 91: 'Urban', 92: 'Bare ground', 93: 'Non-combustible', 98: 'Water'}
     colors = {0: '#e5e7eb', 91: '#777e87', 92: '#d6bc93', 93: '#c6c0ae', 98: '#4296ca'}
     colors.update(dict(zip(
         [102, 104, 106, 107, 108, 109, 142, 143, 145, 147, 148, 149, 161, 162, 163, 165, 183],
@@ -60,7 +60,7 @@ def render(directory, scenario=0, output=None):
     fig.subplots_adjust(left=.07, right=.97, top=.77 if case else .82, bottom=.26, wspace=.24)
     for ax in axes:
         ax.imshow(categorical, cmap=cmap, norm=norm, origin='upper', extent=extent, interpolation='nearest')
-        ax.set_xlabel('Este UTM (km)'); ax.set_ylabel('Norte UTM (km)')
+        ax.set_xlabel('UTM easting (km)'); ax.set_ylabel('UTM northing (km)')
         ax.ticklabel_format(useOffset=False, style='plain')
         for x, y in meta['ignitions']:
             ax.plot(x0 + (x + .5) * cell / 1000,
@@ -75,26 +75,26 @@ def render(directory, scenario=0, output=None):
     overlay[states == 2] = matplotlib.colors.to_rgba('#171b22')
     overlay[states == 1] = matplotlib.colors.to_rgba('#ff4d18')
     axes[-1].imshow(overlay, origin='upper', extent=extent, interpolation='nearest')
-    axes[0].set_title('Mapa de clases · códigos ZAFM conservados', fontsize=11)
+    axes[0].set_title('Fuel classes · original ZAFM codes', fontsize=11)
     if has_elevation:
         relief = axes[1].imshow(np.ma.masked_where(codes == 0, elevations), cmap='terrain',
                                origin='upper', extent=extent, interpolation='nearest', zorder=.5)
-        axes[1].set_title('Elevación de superficie · metros', fontsize=11)
+        axes[1].set_title('Surface elevation · metres', fontsize=11)
         fig.colorbar(relief, ax=axes[1], shrink=.65, pad=.02, label='m')
-    axes[-1].set_title(f'Escenario {scenario} · {summary["steps_executed"]} iteraciones\n'
-                      f'{float(summary["burned_hectares"]):.2f} ha afectadas · '
-                      f'{float(summary["combustible_burned_percent"]):.2f}% del combustible', fontsize=11)
-    fig.suptitle('EMBER | Propagación sobre terreno real', x=.07, ha='left', y=.96, fontsize=22, weight='bold')
-    fig.text(.07, .905, f'EPSG:{meta["epsg"]} · celdas de {cell:g} m · '
-             f'combustible uniforme {meta["fuel"]:.2g} · humedad uniforme {meta["moisture"]:.2g}', fontsize=11)
-    relief_note = 'relieve real remuestreado' if has_elevation else 'relieve plano'
-    fig.text(.07, .865, f'Modelo estocástico sin calibrar · {relief_note} · las iteraciones no representan minutos', fontsize=10)
+    axes[-1].set_title(f'Scenario {scenario} · {summary["steps_executed"]} iterations\n'
+                      f'{float(summary["burned_hectares"]):.2f} ha affected · '
+                      f'{float(summary["combustible_burned_percent"]):.2f}% of combustible area', fontsize=11)
+    fig.suptitle('EMBER | Fire spread over real terrain', x=.07, ha='left', y=.96, fontsize=22, weight='bold')
+    fig.text(.07, .905, f'EPSG:{meta["epsg"]} · {cell:g} m cells · '
+             f'uniform fuel {meta["fuel"]:.2g} · uniform moisture {meta["moisture"]:.2g}', fontsize=11)
+    relief_note = 'resampled real elevation' if has_elevation else 'flat terrain'
+    fig.text(.07, .865, f'Uncalibrated stochastic model · {relief_note} · iterations do not represent minutes', fontsize=10)
     if case:
         weather = case['weather']
         wind = case['wind_conversion']
-        fig.text(.07, .825, f'ERA5 · {weather["timestamp_utc"]} · viento desde '
-                 f'{weather["values"]["wind_direction_10m"]:g}° a {weather["values"]["wind_speed_10m"]:g} m/s · '
-                 f'referencia heurística {wind["reference_m_s"]:g} m/s · condiciones constantes', fontsize=10)
+        fig.text(.07, .825, f'ERA5 · {weather["timestamp_utc"]} · wind from '
+                 f'{weather["values"]["wind_direction_10m"]:g}° at {weather["values"]["wind_speed_10m"]:g} m/s · '
+                 f'heuristic reference {wind["reference_m_s"]:g} m/s · constant conditions', fontsize=10)
         angle = np.deg2rad(wind['wind_direction_degrees'])
         ax = axes[-1]
         moving = weather['values']['wind_speed_10m'] > 0
@@ -102,18 +102,18 @@ def render(directory, scenario=0, output=None):
             ax.annotate('', xy=(.85 + .09 * np.cos(angle), .87 + .09 * np.sin(angle)),
                         xytext=(.85, .87), xycoords='axes fraction',
                         arrowprops=dict(arrowstyle='->', color='#1565c0', lw=3))
-        ax.text(.72, .72, 'Viento hacia' if moving else 'Calma', transform=ax.transAxes, fontsize=9,
+        ax.text(.72, .72, 'Wind toward' if moving else 'Calm', transform=ax.transAxes, fontsize=9,
                 bbox=dict(facecolor='white', alpha=.85, edgecolor='none'))
         copernicus = any('copernicus-dem-30m.s3' in source['source'] for source in case['elevation']['sources'])
-        source_label = 'Copernicus DEM GLO-30 / DLR / Airbus / UE / ESA' if copernicus else 'DEM local'
-        fig.text(.07, .012, f'Relieve: {source_label} (ver inputs/elevation.json). '
-                 'Meteorología: ERA5 · C3S / ECMWF vía Open-Meteo · CC BY 4.0.', fontsize=8)
+        source_label = 'Copernicus DEM GLO-30 / DLR / Airbus / EU / ESA' if copernicus else 'Local DEM'
+        fig.text(.07, .012, f'Elevation: {source_label} (see inputs/elevation.json). '
+                 'Weather: ERA5 · C3S / ECMWF via Open-Meteo · CC BY 4.0.', fontsize=8)
     handles = [Patch(color=colors[int(c)], label=f'{c} · {labels[int(c)]}' if int(c) in labels else f'ZAFM {c}') for c in present]
-    handles += [Patch(color='#171b22', label='Quemado'), Patch(color='#ff4d18', label='Ardiendo'),
-                plt.Line2D([], [], marker='*', color='#ffeb3b', markeredgecolor='black', linestyle='', label='Ignición')]
+    handles += [Patch(color='#171b22', label='Burned'), Patch(color='#ff4d18', label='Burning'),
+                plt.Line2D([], [], marker='*', color='#ffeb3b', markeredgecolor='black', linestyle='', label='Ignition')]
     fig.legend(handles=handles, loc='lower center', bbox_to_anchor=(.5, .09), ncol=6, frameon=False, fontsize=9)
     fig.text(.07, .06, 'Sánchez et al. · ZAFM Europe v1.0 · doi:10.5281/zenodo.18788338 · © Paula Sánchez 2025 · CC BY 4.0', fontsize=8)
-    fig.text(.07, .035, 'Fuentes: ESA WorldCover 2021 / Copernicus Sentinel · FirEUrisk Europe. Las clases son estimaciones cartográficas.', fontsize=8)
+    fig.text(.07, .035, 'Sources: ESA WorldCover 2021 / Copernicus Sentinel · FirEUrisk Europe. Classes are mapped estimates.', fontsize=8)
     output = Path(output) if output else directory / f'scenario_{scenario:06d}.png'
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=160, facecolor='white')

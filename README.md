@@ -61,6 +61,9 @@ a different model and rejects real-terrain input.
 For aligned metric elevation and a dated ERA5 wind snapshot, see the
 [real-environment workflow](docs/real-environment.md). It prepares a portable case
 online and runs and renders it offline on scalar CPU, with explicit model assumptions.
+Cases can also be prepared around a mainland coordinate using `--latitude` and
+`--longitude`, with configurable grid size and resolution; see the
+[coordinate workflow](docs/real-environment.md#prepare-a-mainland-case-by-coordinates).
 
 ## Run synthetic terrain
 

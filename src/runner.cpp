@@ -102,7 +102,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     batch.height = config.height;
     batch.terrain_load_seconds = load_seconds;
     if (config.terrain && rank == 0) {
-        std::cout << "Terrain: EPSG:32631, " << config.terrain->cell_size_m << " m cells; load "
+        std::cout << "Terrain: EPSG:" << config.terrain->epsg << ", " << config.terrain->cell_size_m << " m cells; load "
                   << load_seconds << " s\nUniform fuel: " << config.terrain_fuel
                   << "; moisture: " << config.terrain_moisture
                   << (config.elevation ? "; metric elevation\n" : "; flat elevation\n");

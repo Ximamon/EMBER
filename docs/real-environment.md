@@ -18,7 +18,7 @@ python tools/terrain/case.py prepare --time 2025-08-01T12:00Z \
 ```
 
 The example uses the bundled Collserola crop (512 × 512 at 10 m). `--terrain` accepts
-another prepared ZAFM crop within EPSG:32631. The national Spain raster remains a
+another prepared ZAFM crop in WGS84 UTM 29N, 30N or 31N. The national Spain raster remains a
 source for bounded crops, not a national simulation grid. Preparation downloads only
 intersecting Copernicus GLO-30 tiles and one day of ERA5 hourly data, selecting exactly
 the requested UTC hour. It publishes the directory only after successful validation.
@@ -28,6 +28,35 @@ hours are errors; there is no automatic substitution of a forecast or another mo
 Use `--dem path/to/local.tif` instead of downloading Copernicus for a local,
 single-band, georeferenced raster whose unscaled heights are in metres. The caller
 must supply metric values and retain that raster's original licence and attribution.
+
+## Prepare a mainland case by coordinates
+
+```sh
+python tools/terrain/case.py prepare --latitude 40.78 --longitude -4.05 \
+  --size 512 --resolution 10 --time 2025-08-01T12:00Z \
+  --output out/guadarrama-case
+```
+
+Both coordinates are required together and cannot be combined with `--terrain`.
+The square grid is centred geometrically on that point; `--size` defaults to 512
+cells per side and `--resolution` to 10 metres (5.12 × 5.12 km). These two options
+require coordinates. Without coordinates or an explicit terrain, Collserola remains
+the default. Existing output directories are never overwritten.
+
+The preparer selects WGS84 UTM 29N, 30N or 31N from the centre longitude and keeps
+that projection across the entire crop, including crossings of a zone boundary.
+This workflow targets mainland Spain. Its coordinate bounds are 9.5° W–3.5° E,
+36–44° N, not an administrative boundary check; valid cells depend on source coverage.
+Islands are outside this workflow's supported scope. NoData remains blocked, and
+crops without combustible cells fail. Missing elevation on valid cells or unavailable
+weather fails preparation without publishing an incomplete case.
+
+Fuel is cropped first, elevation is aligned to that grid, and weather is requested
+at its centre. `terrain.json` records the requested centre, bounds, EPSG, resolution
+and source provenance. Run and render the resulting directory with the commands below,
+replacing the Collserola paths with the new case and result paths. Without an explicit
+`--ignition X,Y`, ignition uses the combustible cell nearest the geometric centre;
+the centre coordinate need not itself be combustible.
 
 ## Run and render offline
 
@@ -65,7 +94,7 @@ including valid negative elevations. Missing heights on any valid terrain cell a
 rejected; NoData outside the ZAFM domain remains blocked.
 
 The native CLI accepts `--terrain terrain.asc --elevation elevation.asc`. The second
-ASCII grid must have a matching EPSG:32631 `.prj`, dimensions, cell size and lower-left
+ASCII grid must have the same WGS84 UTM `.prj` (EPSG:32629, 32630 or 32631), dimensions, cell size and lower-left
 origin (serialization tolerance 1e-7 m). Its six header fields follow the terrain
 format, but heights are floating-point and its finite NoData sentinel is explicit.
 
@@ -108,6 +137,8 @@ Tests use local rasters and mocked HTTP responses. They cover alignment and orie
 missing elevations, slopes and diagonal distances, wind cardinal directions and units,
 unavailable weather, checksums, failed preparation, deterministic and portable replay,
 and rendering. CI does not download environmental data.
+Coordinate cases also cover all three supported UTM zones, zone-boundary crossings,
+centred geometry, weather request coordinates and rejection of mismatched projections.
 
 ## Sources and attribution
 
