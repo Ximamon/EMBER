@@ -47,7 +47,7 @@ mpirun -np 4 \
     --width 1024 \
     --height 1024 \
     --steps 1024 \
-    --scenarios 4 \
+    --scenarios 32 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \

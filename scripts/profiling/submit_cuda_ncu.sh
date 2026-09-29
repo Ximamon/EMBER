@@ -34,7 +34,7 @@ ncu --import-source=yes --clock-control=none -k step_stencil_kernel -c 5 \
     --width 1024 \
     --height 1024 \
     --steps 20 \
-    --scenarios 1 \
+    --scenarios 8 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \

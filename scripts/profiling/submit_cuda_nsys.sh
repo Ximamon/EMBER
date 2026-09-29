@@ -39,7 +39,7 @@ nsys profile \
     --width 1024 \
     --height 1024 \
     --steps 1024 \
-    --scenarios 2 \
+    --scenarios 8 \
     --seed 42 \
     --base-spread 0.80 \
     --wind-strength 0.8 \
