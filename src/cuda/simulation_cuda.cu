@@ -349,9 +349,6 @@ namespace ember {
     // CONTROLLER AND VRAM MANAGER (HOST RUNNER)
     // ============================================================================
 
-    /**
-     * @brief Queries and logs properties of available CUDA GPU devices.
-     */
     bool check_cuda_device() {
         int device_count = 0;
         cudaError_t err = cudaGetDeviceCount(&device_count);
@@ -368,14 +365,10 @@ namespace ember {
         return true;
     }
 
-    /**
-     * @brief Initializes the CUDA driver runtime context and binds the process to a device.
-     */
     bool initialize_cuda_context(double& seconds) {
         const nvtx::ScopedRange range("cuda.startup", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
         
-        // Assign GPU based on local rank to avoid contention in multi-GPU nodes
         int device_count = 0;
         cudaGetDeviceCount(&device_count);
 
@@ -393,7 +386,7 @@ namespace ember {
             cudaDeviceProp prop;
             cudaGetDeviceProperties(&prop, target_gpu);
             std::cout << "[MPI Rank " << local_rank << "] Vinculado a GPU #" 
-                    << target_gpu << ": " << prop.name << '\n';
+                      << target_gpu << ": " << prop.name << '\n';
         }
 
         const auto status = cudaFree(nullptr);
@@ -405,43 +398,46 @@ namespace ember {
         return true;
     }
 
-    /**
-     * @brief Destructor. Automatically deallocates all device memory buffers.
-     */
     CudaWorkspace::~CudaWorkspace() noexcept {
         double ignored = 0.0;
         release(ignored);
     }
 
-    /**
-     * @brief Allocates persistent VRAM buffers if not already allocated.
-     */
     bool CudaWorkspace::allocate(double& seconds) {
         seconds = 0.0;
-        if (state_curr_) return true;
+        if (slots_[0].state_curr) return true;
         const nvtx::ScopedRange range("cuda.allocate", nvtx::purple, 2U);
         const auto start = std::chrono::steady_clock::now();
 
-        // Crear el stream persistente no bloqueante
-        if (stream_ == nullptr) {
-            CUDA_CHECK(cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking));
+        // 1. Crear los dos streams no bloqueantes independientes
+        if (!stream_compute_) {
+            CUDA_CHECK(cudaStreamCreateWithFlags(&stream_compute_, cudaStreamNonBlocking));
+        }
+        if (!stream_transfer_) {
+            CUDA_CHECK(cudaStreamCreateWithFlags(&stream_transfer_, cudaStreamNonBlocking));
         }
 
         const auto bytes_state = cell_count_ * sizeof(CellState);
         const auto bytes_float = cell_count_ * sizeof(float);
-        const auto allocate_one = [](auto** pointer, std::size_t bytes) {
-            const auto status = cudaMalloc(pointer, bytes);
-            if (status != cudaSuccess)
-                std::cerr << "[CUDA ERROR] allocation: " << cudaGetErrorString(status) << '\n';
-            return status == cudaSuccess;
+
+        const auto allocate_slot = [&](SlotBuffers& s) {
+            const auto allocate_one = [](auto** pointer, std::size_t bytes) {
+                const auto status = cudaMalloc(pointer, bytes);
+                if (status != cudaSuccess)
+                    std::cerr << "[CUDA ERROR] allocation: " << cudaGetErrorString(status) << '\n';
+                return status == cudaSuccess;
+            };
+            return allocate_one(&s.state_curr, bytes_state) &&
+                   allocate_one(&s.state_next, bytes_state) &&
+                   allocate_one(&s.fuel_curr, bytes_float) &&
+                   allocate_one(&s.fuel_next, bytes_float) &&
+                   allocate_one(&s.elevation, bytes_float) &&
+                   allocate_one(&s.moisture, bytes_float) &&
+                   allocate_one(&s.vegetation, bytes_float);
         };
-        const bool ok = allocate_one(&state_curr_, bytes_state) &&
-                        allocate_one(&state_next_, bytes_state) &&
-                        allocate_one(&fuel_curr_, bytes_float) &&
-                        allocate_one(&fuel_next_, bytes_float) &&
-                        allocate_one(&elevation_, bytes_float) &&
-                        allocate_one(&moisture_, bytes_float) &&
-                        allocate_one(&vegetation_, bytes_float);
+
+        // Reservar VRAM para Slot 0 y Slot 1 (~44 MB totales)
+        const bool ok = allocate_slot(slots_[0]) && allocate_slot(slots_[1]);
         seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         if (!ok) {
             double ignored = 0.0;
@@ -450,66 +446,48 @@ namespace ember {
         return ok;
     }
 
-    /**
-     * @brief Releases all allocated VRAM buffers and resets pointers to nullptr.
-     */
     void CudaWorkspace::release(double& seconds) noexcept {
         const nvtx::ScopedRange range("cuda.free", nvtx::purple, 1U);
         const auto start = std::chrono::steady_clock::now();
 
-        if (stream_) {
-            cudaStreamDestroy(stream_);
-            stream_ = nullptr;
-        }
+        if (stream_compute_) { cudaStreamDestroy(stream_compute_); stream_compute_ = nullptr; }
+        if (stream_transfer_) { cudaStreamDestroy(stream_transfer_); stream_transfer_ = nullptr; }
 
-        cudaFree(state_curr_); cudaFree(state_next_);
-        cudaFree(fuel_curr_); cudaFree(fuel_next_);
-        cudaFree(elevation_); cudaFree(moisture_); cudaFree(vegetation_);
+        const auto free_slot = [](SlotBuffers& s) {
+            cudaFree(s.state_curr); cudaFree(s.state_next);
+            cudaFree(s.fuel_curr); cudaFree(s.fuel_next);
+            cudaFree(s.elevation); cudaFree(s.moisture); cudaFree(s.vegetation);
+            s = {};
+        };
+        free_slot(slots_[0]);
+        free_slot(slots_[1]);
+
         cudaFree(ignition_indices_);
-        state_curr_ = state_next_ = nullptr;
-        fuel_curr_ = fuel_next_ = elevation_ = moisture_ = vegetation_ = nullptr;
         ignition_indices_ = nullptr;
         ignition_capacity_ = 0;
+
         seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     }
 
     // ============================================================================
-    // PIPELINED ASYNCHRONOUS LAUNCH & SYNCHRONIZATION
+    // PIPELINED ASYNCHRONOUS LAUNCH & MULTI-STREAM SYNCHRONIZATION
     // ============================================================================
 
-    /**
-     * @brief Asynchronously enqueues inputs and launches stencil kernels on the GPU.
-     */
-    bool launch_scenario_cuda(
+    bool upload_scenario_async(
         const SimulationConfig& config,
         std::size_t scenario_id,
         GridBuffers& buffers,
         CudaWorkspace& workspace,
+        int slot,
         CudaScenarioTimings& timings)
     {
         const int width = static_cast<int>(config.width);
         const int height = static_cast<int>(config.height);
         const std::size_t num_cells = config.width * config.height;
-
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
 
-        if (!workspace.allocate(timings.allocation_seconds)) return false;
-
-        CellState* d_state_curr = workspace.state_curr_;
-        CellState* d_state_next = workspace.state_next_;
-        float* d_fuel_curr = workspace.fuel_curr_;
-        float* d_fuel_next = workspace.fuel_next_;
-        float* d_elevation = workspace.elevation_;
-        float* d_moisture = workspace.moisture_;
-        float* d_vegetation = workspace.vegetation_;
-
-        auto view = buffers.current_view();
-        if (view.state == nullptr || view.fuel == nullptr || view.elevation == nullptr ||
-            view.moisture == nullptr || view.vegetation == nullptr) {
-            std::cerr << "[CUDA ERROR] host output buffers are not initialized\n";
-            return false;
-        }
+        auto& s = workspace.slots_[slot];
 
         if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
             const auto count = config.ignitions.size();
@@ -530,7 +508,8 @@ namespace ember {
                     indices.push_back(static_cast<uint64_t>(point.y * config.width + point.x));
                 const nvtx::ScopedRange upload_range("cuda.host_to_device_ignitions", nvtx::teal, 2U);
                 const auto start = std::chrono::steady_clock::now();
-                CUDA_CHECK(cudaMemcpy(workspace.ignition_indices_, indices.data(), count * sizeof(uint64_t), cudaMemcpyHostToDevice));
+                CUDA_CHECK(cudaMemcpyAsync(workspace.ignition_indices_, indices.data(), count * sizeof(uint64_t),
+                                           cudaMemcpyHostToDevice, workspace.stream_transfer_));
                 timings.host_to_device_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
             }
             const nvtx::ScopedRange init_range("cuda.initialize_synthetic", nvtx::teal, 2U);
@@ -538,61 +517,69 @@ namespace ember {
             const uint64_t seed = ember::scenario_seed(config.seed, static_cast<uint64_t>(scenario_id));
             const unsigned int threads = 256;
             const unsigned int blocks = static_cast<unsigned int>((num_cells + threads - 1) / threads);
-            initialize_synthetic_kernel<<<blocks, threads, 0, workspace.stream_>>>(
+            
+            initialize_synthetic_kernel<<<blocks, threads, 0, workspace.stream_transfer_>>>(
                 num_cells, (config.height / 2) * config.width + config.width / 2, seed,
                 config.min_fuel, config.max_fuel, config.min_moisture, config.max_moisture,
                 config.min_vegetation, config.max_vegetation, config.min_elevation, config.max_elevation,
                 config.non_combustible_fraction, config.burn_rate,
                 workspace.ignition_indices_, count,
-                d_state_curr, d_state_next, d_fuel_curr, d_fuel_next,
-                d_moisture, d_vegetation, d_elevation);
+                s.state_curr, s.state_next, s.fuel_curr, s.fuel_next,
+                s.moisture, s.vegetation, s.elevation);
             CUDA_CHECK(cudaGetLastError());
-            CUDA_CHECK(cudaStreamSynchronize(workspace.stream_));
             timings.device_initialization_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-            if (config.verify_cuda_initialization) {
-                const nvtx::ScopedRange verify_range("cuda.verify_initial_input", nvtx::green, 2U);
-                SimulationConfig cpu_config = config;
-                cpu_config.synthetic_init_backend = SyntheticInitBackend::Cpu;
-                cpu_config.verify_cuda_initialization = false;
-                WildfireSimulation reference(cpu_config, scenario_id);
-                reference.initialize();
-                const auto expected = static_cast<const GridBuffers&>(reference.grid()).current_view();
-                std::vector<CellState> states(num_cells);
-                std::vector<float> values(num_cells);
-                CUDA_CHECK(cudaMemcpy(states.data(), d_state_curr, bytes_state, cudaMemcpyDeviceToHost));
-                if (std::memcmp(states.data(), expected.state, bytes_state) != 0) {
-                    std::cerr << "[CUDA ERROR] initialized state differs from CPU\n";
-                    return false;
-                }
-                const auto compare_field = [&](const char* name, const float* device, const float* host) {
-                    const auto status = cudaMemcpy(values.data(), device, bytes_float, cudaMemcpyDeviceToHost);
-                    if (status != cudaSuccess) {
-                        std::cerr << "[CUDA ERROR] verifying " << name << ": " << cudaGetErrorString(status) << '\n';
-                        return false;
-                    }
-                    if (std::memcmp(values.data(), host, bytes_float) != 0) {
-                        std::cerr << "[CUDA ERROR] initialized " << name << " differs from CPU\n";
-                        return false;
-                    }
-                    return true;
-                };
-                if (!compare_field("fuel", d_fuel_curr, expected.fuel) ||
-                    !compare_field("moisture", d_moisture, expected.moisture) ||
-                    !compare_field("vegetation", d_vegetation, expected.vegetation) ||
-                    !compare_field("elevation", d_elevation, expected.elevation)) return false;
-            }
         } else {
-            const nvtx::ScopedRange upload_range("cuda.host_to_device", nvtx::teal, 2U);
+            auto view = buffers.current_view();
+            if (view.state == nullptr || view.fuel == nullptr || view.elevation == nullptr ||
+                view.moisture == nullptr || view.vegetation == nullptr) {
+                std::cerr << "[CUDA ERROR] host output buffers are not initialized\n";
+                return false;
+            }
+
+            const nvtx::ScopedRange upload_range("cuda.host_to_device_async", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
-            CUDA_CHECK(cudaMemcpy(d_state_curr, view.state, bytes_state, cudaMemcpyHostToDevice));
-            CUDA_CHECK(cudaMemcpy(d_fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice));
-            CUDA_CHECK(cudaMemcpy(d_elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice));
-            CUDA_CHECK(cudaMemcpy(d_moisture, view.moisture, bytes_float, cudaMemcpyHostToDevice));
-            CUDA_CHECK(cudaMemcpy(d_vegetation, view.vegetation, bytes_float, cudaMemcpyHostToDevice));
+
+            // Bloquear páginas en RAM para transferir por DMA asíncrono real
+            cudaHostRegister(view.state, bytes_state, cudaHostRegisterDefault);
+            cudaHostRegister(view.fuel, bytes_float, cudaHostRegisterDefault);
+            cudaHostRegister(view.elevation, bytes_float, cudaHostRegisterDefault);
+            cudaHostRegister(view.moisture, bytes_float, cudaHostRegisterDefault);
+            cudaHostRegister(view.vegetation, bytes_float, cudaHostRegisterDefault);
+
+            CUDA_CHECK(cudaMemcpyAsync(s.state_curr, view.state, bytes_state, cudaMemcpyHostToDevice, workspace.stream_transfer_));
+            CUDA_CHECK(cudaMemcpyAsync(s.fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
+            CUDA_CHECK(cudaMemcpyAsync(s.elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
+            CUDA_CHECK(cudaMemcpyAsync(s.moisture, view.moisture, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
+            CUDA_CHECK(cudaMemcpyAsync(s.vegetation, view.vegetation, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
+
             timings.host_to_device_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         }
+
+        return true;
+    }
+
+    bool unregister_scenario_host(const SimulationConfig& config, GridBuffers& buffers) {
+        if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) return true;
+        auto view = buffers.current_view();
+        cudaHostUnregister(view.state);
+        cudaHostUnregister(view.fuel);
+        cudaHostUnregister(view.elevation);
+        cudaHostUnregister(view.moisture);
+        cudaHostUnregister(view.vegetation);
+        return true;
+    }
+
+    bool launch_scenario_kernel(
+        const SimulationConfig& config,
+        std::size_t scenario_id,
+        CudaWorkspace& workspace,
+        int slot)
+    {
+        const int width = static_cast<int>(config.width);
+        const int height = static_cast<int>(config.height);
+        auto& s = workspace.slots_[slot];
 
         constexpr float pi = 3.14159265358979323846f;
         const float radians = config.wind_direction_degrees * pi / 180.0f;
@@ -603,17 +590,22 @@ namespace ember {
         const dim3 block_dim(16, 16);
         const dim3 grid_dim((width + 15) / 16, (height + 15) / 16);
 
+        CellState* d_state_curr = s.state_curr;
+        CellState* d_state_next = s.state_next;
+        float* d_fuel_curr = s.fuel_curr;
+        float* d_fuel_next = s.fuel_next;
+
         workspace.kernel_start_time_ = std::chrono::steady_clock::now();
 
         {
             const nvtx::ScopedRange timesteps_range("cuda.timesteps", nvtx::orange, 2U);
             for (std::size_t step = 0; step < config.max_steps; ++step) {
-                step_stencil_kernel<<<grid_dim, block_dim, 0, workspace.stream_>>>(
+                step_stencil_kernel<<<grid_dim, block_dim, 0, workspace.stream_compute_>>>(
                     width, height, scenario_seed, static_cast<uint64_t>(step),
                     static_cast<float>(config.base_spread), static_cast<float>(config.burn_rate),
                     static_cast<float>(config.wind_strength), wind_x, wind_y,
                     static_cast<float>(config.slope_scale),
-                    d_fuel_curr, d_fuel_next, d_elevation, d_moisture, d_vegetation,
+                    d_fuel_curr, d_fuel_next, s.elevation, s.moisture, s.vegetation,
                     d_state_curr, d_state_next
                 );
 
@@ -622,31 +614,28 @@ namespace ember {
             }
         }
 
-        // Save final device pointers holding the converged or final simulation state
-        workspace.result_state_curr_ = d_state_curr;
-        workspace.result_fuel_curr_ = d_fuel_curr;
-
+        s.result_state_curr = d_state_curr;
+        s.result_fuel_curr = d_fuel_curr;
         return true;
     }
 
-    /**
-     * @brief Synchronizes GPU execution, measures kernel duration, and downloads results to host memory.
-     */
-    bool sync_and_download_scenario_cuda(
+    bool sync_and_download_slot(
         const SimulationConfig& config,
         GridBuffers& buffers,
         CudaWorkspace& workspace,
+        int slot,
         std::size_t& completed_steps,
         CudaScenarioTimings& timings)
     {
         const std::size_t num_cells = config.width * config.height;
         const std::size_t bytes_state = num_cells * sizeof(CellState);
         const std::size_t bytes_float = num_cells * sizeof(float);
+        auto& s = workspace.slots_[slot];
 
-        // Wait only for the queue of this specific stream to empty, not the entire device.
+        // Sincronizar únicamente el cómputo de la GPU
         {
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
-            CUDA_CHECK(cudaStreamSynchronize(workspace.stream_));
+            CUDA_CHECK(cudaStreamSynchronize(workspace.stream_compute_));
         }
 
         const auto t_end = std::chrono::steady_clock::now();
@@ -657,12 +646,12 @@ namespace ember {
         {
             const nvtx::ScopedRange download_range("cuda.device_to_host", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
-            CUDA_CHECK(cudaMemcpy(view.state, workspace.result_state_curr_, bytes_state, cudaMemcpyDeviceToHost));
-            CUDA_CHECK(cudaMemcpy(view.fuel, workspace.result_fuel_curr_, bytes_float, cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(view.state, s.result_state_curr, bytes_state, cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(view.fuel, s.result_fuel_curr, bytes_float, cudaMemcpyDeviceToHost));
             if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) {
-                CUDA_CHECK(cudaMemcpy(view.moisture, workspace.moisture_, bytes_float, cudaMemcpyDeviceToHost));
-                CUDA_CHECK(cudaMemcpy(view.vegetation, workspace.vegetation_, bytes_float, cudaMemcpyDeviceToHost));
-                CUDA_CHECK(cudaMemcpy(view.elevation, workspace.elevation_, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.moisture, s.moisture, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.vegetation, s.vegetation, bytes_float, cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(view.elevation, s.elevation, bytes_float, cudaMemcpyDeviceToHost));
             }
             timings.device_to_host_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -671,9 +660,11 @@ namespace ember {
         return true;
     }
 
-    /**
-     * @brief Synchronous composite wrapper combining asynchronous launch, device synchronization, and D2H download.
-     */
+    bool sync_transfer_stream(CudaWorkspace& workspace) {
+        CUDA_CHECK(cudaStreamSynchronize(workspace.stream_transfer_));
+        return true;
+    }
+
     bool run_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,
@@ -683,7 +674,10 @@ namespace ember {
         CudaScenarioTimings& timings)
     {
         const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
-        if (!launch_scenario_cuda(config, scenario_id, buffers, workspace, timings)) return false;
-        return sync_and_download_scenario_cuda(config, buffers, workspace, completed_steps, timings);
+        if (!upload_scenario_async(config, scenario_id, buffers, workspace, 0, timings)) return false;
+        if (!sync_transfer_stream(workspace)) return false;
+        unregister_scenario_host(config, buffers);
+        if (!launch_scenario_kernel(config, scenario_id, workspace, 0)) return false;
+        return sync_and_download_slot(config, buffers, workspace, 0, completed_steps, timings);
     }
 } // namespace ember

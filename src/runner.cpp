@@ -123,7 +123,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     if (!initialize_cuda_context(batch.cuda_startup_seconds))
         throw std::runtime_error("CUDA context initialization failed");
 
-    // 1. Filter scenarios assigned to this MPI rank
+    // 1. Filtrar escenarios asignados a este rango MPI
     std::vector<std::size_t> my_scenarios;
     for (std::size_t scenario_index = 0; scenario_index < config.scenarios; ++scenario_index) {
         if (scenario_index % static_cast<std::size_t>(world_size) == static_cast<std::size_t>(rank)) {
@@ -132,43 +132,63 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
     }
 
     if (!my_scenarios.empty()) {
-        std::unique_ptr<WildfireSimulation> current_sim = nullptr;
-        double current_host_init_seconds = 0.0;
+        double alloc_sec = 0.0;
+        if (!cuda_workspace.allocate(alloc_sec)) {
+            throw std::runtime_error("CUDA workspace allocation failed");
+        }
 
-        // Pipelined execution loop
+        // PRÓLOGO: Inicializar y subir el Escenario 0 al Slot 0
+        const std::size_t first_scenario = my_scenarios[0];
+        auto current_sim = std::make_unique<WildfireSimulation>(config, static_cast<std::uint64_t>(first_scenario));
+        
+        double current_host_init_seconds = 0.0;
+        {
+            const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
+            const auto host_init_start = clock::now();
+            if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
+                current_sim->initialize_empty();
+            else
+                current_sim->initialize();
+            current_host_init_seconds = std::chrono::duration<double>(clock::now() - host_init_start).count();
+        }
+
+        CudaScenarioTimings current_cuda_timings;
+        current_cuda_timings.allocation_seconds = alloc_sec;
+
+        if (!upload_scenario_async(config, first_scenario, current_sim->grid(), cuda_workspace, 0, current_cuda_timings)) {
+            throw std::runtime_error("CUDA prologue upload failed for scenario " + std::to_string(first_scenario));
+        }
+        if (!sync_transfer_stream(cuda_workspace)) {
+            throw std::runtime_error("CUDA prologue transfer sync failed");
+        }
+        unregister_scenario_host(config, current_sim->grid());
+
+        // BUCLE EN PIPELINE CON DOBLE BÚFER Y STREAMS SOLAPADOS
         for (std::size_t i = 0; i < my_scenarios.size(); ++i) {
             const std::size_t scenario_index = my_scenarios[i];
+            const int current_slot = static_cast<int>(i % 2);
+            const int next_slot = static_cast<int>((i + 1) % 2);
+
             const std::string scenario_range_name = "batch.scenario." + std::to_string(scenario_index);
             const nvtx::ScopedRange scenario_range(scenario_range_name.c_str(), nvtx::blue, 1U);
             const auto scenario_wall_start = clock::now();
 
-            // A. Cold start: allocate and initialize host buffers for the initial scenario
-            if (i == 0) {
-                current_sim = std::make_unique<WildfireSimulation>(config, static_cast<std::uint64_t>(scenario_index));
-                const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
-                const auto host_init_start = clock::now();
-                if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
-                    current_sim->initialize_empty();
-                else
-                    current_sim->initialize();
-                current_host_init_seconds = std::chrono::duration<double>(clock::now() - host_init_start).count();
-            }
-
-            CudaScenarioTimings cuda_timings;
             std::size_t completed_steps = 0;
 
-            // B. Enqueue simulation kernels on the GPU (asynchronous launch returns immediately to CPU)
-            if (!launch_scenario_cuda(config, scenario_index, current_sim->grid(), cuda_workspace, cuda_timings)) {
-                throw std::runtime_error("CUDA scenario launch failed on rank " + std::to_string(rank) +
-                                         ", scenario " + std::to_string(scenario_index));
+            // A. Lanzar el cómputo del escenario actual en current_slot (stream_compute_)
+            if (!launch_scenario_kernel(config, scenario_index, cuda_workspace, current_slot)) {
+                throw std::runtime_error("CUDA kernel launch failed for scenario " + std::to_string(scenario_index));
             }
 
-            // C. CONCURRENT OVERLAP: initialize the next scenario (i + 1) in host RAM while the GPU computes scenario i
+            // B. SOLAPAMIENTO CONCURRENTE: Mientras la GPU computa, preparar y subir por DMA el escenario i+1
             std::unique_ptr<WildfireSimulation> next_sim = nullptr;
             double next_host_init_seconds = 0.0;
+            CudaScenarioTimings next_cuda_timings;
+
             if (i + 1 < my_scenarios.size()) {
                 const std::size_t next_scenario_index = my_scenarios[i + 1];
                 next_sim = std::make_unique<WildfireSimulation>(config, static_cast<std::uint64_t>(next_scenario_index));
+
                 const nvtx::ScopedRange host_init_range("scenario.host_initialize", nvtx::teal, 2U);
                 const auto host_init_start = clock::now();
                 if (config.synthetic_init_backend == SyntheticInitBackend::Cuda)
@@ -176,37 +196,49 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
                 else
                     next_sim->initialize();
                 next_host_init_seconds = std::chrono::duration<double>(clock::now() - host_init_start).count();
+
+                // Encolar transferencia DMA en stream_transfer_ hacia next_slot (en paralelo a los kernels)
+                if (!upload_scenario_async(config, next_scenario_index, next_sim->grid(), cuda_workspace, next_slot, next_cuda_timings)) {
+                    throw std::runtime_error("CUDA async upload failed for scenario " + std::to_string(next_scenario_index));
+                }
             }
 
-            // D. Block host CPU until GPU execution completes and download results to RAM
-            if (!sync_and_download_scenario_cuda(config, current_sim->grid(), cuda_workspace, completed_steps, cuda_timings)) {
-                throw std::runtime_error("CUDA scenario sync failed on rank " + std::to_string(rank) +
-                                         ", scenario " + std::to_string(scenario_index));
+            // C. Sincronizar fin del cómputo de current_slot y descargar sus resultados a RAM
+            if (!sync_and_download_slot(config, current_sim->grid(), cuda_workspace, current_slot, completed_steps, current_cuda_timings)) {
+                throw std::runtime_error("CUDA sync and download failed for scenario " + std::to_string(scenario_index));
             }
 
-            // E. Collect scenario-level statistics and timing breakdown
+            // D. Asegurar que la transferencia DMA del escenario siguiente terminó y liberar memoria fijada
+            if (i + 1 < my_scenarios.size()) {
+                if (!sync_transfer_stream(cuda_workspace)) {
+                    throw std::runtime_error("CUDA transfer sync failed for scenario " + std::to_string(my_scenarios[i + 1]));
+                }
+                unregister_scenario_host(config, next_sim->grid());
+            }
+
+            // E. Recopilar estadísticas del escenario actual
             ScenarioStatistics scenario_statistics;
             scenario_statistics.scenario_id = scenario_index;
             scenario_statistics.scenario_seed = ember::scenario_seed(config.seed, scenario_index);
             scenario_statistics.steps_executed = completed_steps;
             scenario_statistics.termination = TerminationReason::MaxSteps;
             scenario_statistics.host_initialization_seconds = current_host_init_seconds;
-            scenario_statistics.device_allocation_seconds = cuda_timings.allocation_seconds;
-            scenario_statistics.host_to_device_seconds = cuda_timings.host_to_device_seconds;
-            scenario_statistics.device_initialization_seconds = cuda_timings.device_initialization_seconds;
-            scenario_statistics.device_to_host_seconds = cuda_timings.device_to_host_seconds;
+            scenario_statistics.device_allocation_seconds = current_cuda_timings.allocation_seconds;
+            scenario_statistics.host_to_device_seconds = current_cuda_timings.host_to_device_seconds;
+            scenario_statistics.device_initialization_seconds = current_cuda_timings.device_initialization_seconds;
+            scenario_statistics.device_to_host_seconds = current_cuda_timings.device_to_host_seconds;
             scenario_statistics.initialization_seconds = scenario_statistics.host_initialization_seconds +
-                cuda_timings.allocation_seconds + cuda_timings.host_to_device_seconds +
-                cuda_timings.device_initialization_seconds;
-            scenario_statistics.simulation_seconds = cuda_timings.kernel_seconds;
-            scenario_statistics.step_compute_seconds = cuda_timings.kernel_seconds;
+                current_cuda_timings.allocation_seconds + current_cuda_timings.host_to_device_seconds +
+                current_cuda_timings.device_initialization_seconds;
+            scenario_statistics.simulation_seconds = current_cuda_timings.kernel_seconds;
+            scenario_statistics.step_compute_seconds = current_cuda_timings.kernel_seconds;
             scenario_statistics.swap_seconds = 0.0;
             scenario_statistics.cell_updates = completed_steps * config.width * config.height;
             scenario_statistics.mean_step_seconds = completed_steps > 0 ?
-                (cuda_timings.kernel_seconds / static_cast<double>(completed_steps)) : 0.0;
+                (current_cuda_timings.kernel_seconds / static_cast<double>(completed_steps)) : 0.0;
             scenario_statistics.throughput_cell_updates_per_second =
-                cuda_timings.kernel_seconds > 0.0 ?
-                    (static_cast<double>(scenario_statistics.cell_updates) / cuda_timings.kernel_seconds) : 0.0;
+                current_cuda_timings.kernel_seconds > 0.0 ?
+                    (static_cast<double>(scenario_statistics.cell_updates) / current_cuda_timings.kernel_seconds) : 0.0;
 
             const auto view = static_cast<const GridBuffers&>(current_sim->grid()).current_view();
             std::size_t burned_count = 0;
@@ -222,7 +254,7 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
             scenario_statistics.burned_percent =
                 (static_cast<double>(burned_count) / static_cast<double>(total_cells)) * 100.0;
 
-            // F. File export (CSV / PPM) if requested
+            // F. Exportación de archivos si se solicitó
             if (config.export_format != ExportFormat::None) {
                 const nvtx::ScopedRange export_range("scenario.export_grid", nvtx::yellow, 2U);
                 const auto stem = scenario_stem(static_cast<std::uint64_t>(scenario_index));
@@ -240,16 +272,16 @@ BatchStatistics run_batch(const SimulationConfig& input_config) {
 
             batch.scenario_results.push_back(scenario_statistics);
 
-            // G. Advance next scenario to current for the subsequent iteration
+            // G. Avanzar al siguiente escenario
             if (next_sim) {
                 current_sim = std::move(next_sim);
                 current_host_init_seconds = next_host_init_seconds;
+                current_cuda_timings = next_cuda_timings;
             }
         }
     }
 
     cuda_workspace.release(batch.cuda_release_seconds);
-
 #else
     // Standard CPU execution path (without CUDA)
     for (std::size_t scenario_index = 0; scenario_index < config.scenarios; ++scenario_index) {
