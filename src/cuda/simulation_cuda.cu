@@ -1,11 +1,9 @@
 /**
  * @file simulation_cuda.cu
  * @author Julian Hinojosa (@jhg45-ua)
- * @brief Implementation of CUDA accelerated kernels, on-device PRNG, and VRAM workspace.
- * @version 0.5
+ * @brief Implementation of CUDA accelerated kernels, on-device PRNG, and double-buffered VRAM workspace with multi-stream overlap.
+ * @version 0.6
  * @date 29/7/2026
- * 
- * 
  */
 
 #include "ember/cuda/simulation_cuda.hpp"
@@ -480,6 +478,13 @@ namespace ember {
     // PIPELINED ASYNCHRONOUS LAUNCH & MULTI-STREAM SYNCHRONIZATION
     // ============================================================================
 
+    /**
+     * @brief Asynchronously uploads input grid layers to the designated VRAM slot.
+     * 
+     * If using on-device synthetic generation, launches the initialization kernel on stream_transfer_.
+     * For host-generated inputs, registers host memory pages with cudaHostRegister to enable
+     * hardware-accelerated non-blocking DMA copies on stream_transfer_ without CPU stall.
+     */
     bool upload_scenario_async(
         const SimulationConfig& config,
         std::size_t scenario_id,
@@ -569,6 +574,11 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Releases page-locked memory registration for host buffers.
+     * 
+     * Must be invoked after DMA transfers on stream_transfer_ complete to unpin host RAM.
+     */
     bool unregister_scenario_host(const SimulationConfig& config, GridBuffers& buffers) {
         if (config.synthetic_init_backend == SyntheticInitBackend::Cuda) return true;
         auto view = buffers.current_view();
@@ -580,6 +590,12 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Dispatches the simulation timesteps for a scenario in stream_compute_.
+     * 
+     * Iterates over max_steps, evaluating step_stencil_kernel and alternating
+     * double-buffered state and fuel pointers within the target VRAM slot.
+     */
     bool launch_scenario_kernel(
         const SimulationConfig& config,
         std::size_t scenario_id,
@@ -628,6 +644,12 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Waits exclusively for compute stream completion and copies results back to host (D2H).
+     * 
+     * Uses cudaStreamSynchronize on stream_compute_ instead of full cudaDeviceSynchronize,
+     * ensuring concurrent DMA transfers in stream_transfer_ are uninterrupted.
+     */
     bool sync_and_download_slot(
         const SimulationConfig& config,
         GridBuffers& buffers,
@@ -669,11 +691,17 @@ namespace ember {
         return true;
     }
 
+    /**
+     * @brief Blocks until all pending DMA uploads on stream_transfer_ finish.
+     */
     bool sync_transfer_stream(CudaWorkspace& workspace) {
         CUDA_CHECK(cudaStreamSynchronize(workspace.stream_transfer_));
         return true;
     }
 
+    /**
+     * @brief Monolithic synchronous entry point preserving backward compatibility.
+     */
     bool run_scenario_cuda(
         const SimulationConfig& config,
         std::size_t scenario_id,
@@ -693,6 +721,5 @@ namespace ember {
         if (!launch_scenario_kernel(config, scenario_id, workspace, 0)) return false;
 
         return sync_and_download_slot(config, buffers, workspace, 0, completed_steps, timings);
-        
     }
 } // namespace ember
