@@ -1,0 +1,43 @@
+==================================================
+CURIOSITY - INTRA-NODE BENCHMARK (4 MPI RANKS x 4 A100 GPUs)
+Job ID:         4358
+Assigned node:  gpu002
+Visible GPUs according to nvidia-smi:
+index, name, pci.bus_id
+0, NVIDIA A100-SXM4-80GB, 00000000:07:00.0
+1, NVIDIA A100-SXM4-80GB, 00000000:0F:00.0
+2, NVIDIA A100-SXM4-80GB, 00000000:47:00.0
+3, NVIDIA A100-SXM4-80GB, 00000000:4E:00.0
+==================================================
+[MPI Rank 2] Vinculado a GPU #2: NVIDIA A100-SXM4-80GB
+[MPI Rank 1] Vinculado a GPU #1: NVIDIA A100-SXM4-80GB
+[MPI Rank 3] Vinculado a GPU #3: NVIDIA A100-SXM4-80GB
+[MPI Rank 0] Vinculado a GPU #0: NVIDIA A100-SXM4-80GB
+EMBER
+MPI Nodes: 4
+Grid: 2048 x 2048
+Maximum steps: 2048
+Scenarios: 80
+Seed: 42
+Initialization time: 3.612364 s
+Simulation time (Wall-clock): 5.593787 s
+  ├── Stencil compute: 2.970298 s (53.10 %)
+  └── Buffer swap:     0.00 s (0.00 %)
+Execution time: 5.593787 s
+Mean scenario time: 0.161253 s
+Mean step time: 0.073 ms
+Cell updates: 687194767360
+Cluster Throughput: 122849640354 cell updates/s
+Mean burned area: 83.451 %
+Completed scenarios: 80
+Extinguished scenarios: 0
+Max-step scenarios: 80
+--------------------------------------------------
+Multi-Node Scaling Metrics:
+  ├── Aggregate Core-Work: 12.900 s
+  └── Effective Speedup:   2.31x / 4.00x (57.7 % efficiency)
+Summary: results/benchmarking/4gpu//summary.csv
+==================================================
+Single-node 4-GPU benchmark completed successfully.
+==================================================
+Copying Slurm logs (.out and .err) to results/benchmarking/4gpu...
