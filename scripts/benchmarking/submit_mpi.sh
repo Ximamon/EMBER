@@ -27,7 +27,21 @@ scontrol show hostnames $SLURM_JOB_NODELIST
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/benchmarking/mpi/
+OUTPUT_DIR="results/benchmarking/mpi"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/mpi_cpu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "mpi_cpu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/mpi_cpu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "mpi_cpu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # Launch clean MPI execution without nsys observer overhead
 mpirun -np 4 \
@@ -46,7 +60,7 @@ mpirun -np 4 \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/benchmarking/mpi/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "Distributed MPI CPU simulation completed successfully."

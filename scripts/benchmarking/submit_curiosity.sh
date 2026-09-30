@@ -18,7 +18,21 @@ echo "Date: $(date)"
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/benchmarking/curiosity/
+OUTPUT_DIR="results/benchmarking/curiosity"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cpu_curiosity_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "cpu_curiosity_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cpu_curiosity_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "cpu_curiosity_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 ./build/ember \
     --width 2048 \
@@ -30,7 +44,7 @@ mkdir -p results/benchmarking/curiosity/
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/benchmarking/curiosity/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "Execution completed successfully on Curiosity CPU."

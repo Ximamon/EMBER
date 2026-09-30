@@ -25,7 +25,21 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/profiling/cuda_nsys/
+OUTPUT_DIR="results/profiling/cuda_nsys"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cuda_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cuda_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # Light workload (2 scenarios) to capture GPU timeline, pipeline overlap, and NVTX phases
 nsys profile \
@@ -34,7 +48,7 @@ nsys profile \
     --backtrace=dwarf \
     --cuda-memory-usage=true \
     --force-overwrite=true \
-    -o results/profiling/cuda_nsys/ember_cuda_profile \
+    -o "${OUTPUT_DIR}/ember_cuda_profile" \
 ./build/ember \
     --width 1024 \
     --height 1024 \
@@ -45,7 +59,7 @@ nsys profile \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/profiling/cuda_nsys/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "CUDA profiling completed successfully on NVIDIA A100 GPU."

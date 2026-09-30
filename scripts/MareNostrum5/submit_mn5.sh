@@ -9,36 +9,49 @@
 #SBATCH --error=ember_cpu_%j.err
 
 echo "=================================================="
-echo "MN5 GPP - COMPILACIÓN Y EJECUCIÓN CPU"
+echo "MN5 GPP - CPU BUILD AND EXECUTION"
 echo "Job ID:         $SLURM_JOB_ID"
-echo "Nodo asignado:  $(hostname)"
+echo "Assigned node:  $(hostname)"
 echo "Account / QoS:  $SLURM_JOB_ACCOUNT / $SLURM_JOB_QOS"
-echo "CPUs asignadas: ${SLURM_CPUS_PER_TASK}"
-echo "Fecha:          $(date)"
+echo "CPUs allocated: ${SLURM_CPUS_PER_TASK}"
+echo "Date:           $(date)"
 echo "=================================================="
 
-# 1. Cargar el entorno oficial de módulos para CPU en MN5
+# 1. Load official module environment for CPU on MN5
 module purge
 module load gcc
 module load cmake
 
-# 2. Configuración de variables de entorno para OpenMP y Slurm
+# 2. Environment variables setup for OpenMP and Slurm
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
 
-# 3. Definición de rutas (código en $HOME, salidas en $SCRATCH)
+# 3. Path definitions (code in $HOME, outputs in $SCRATCH)
 PROJECT_DIR="${HOME}/EMBER"
 BUILD_DIR="${PROJECT_DIR}/build"
 OUTPUT_DIR="${SCRATCH:-/gpfs/scratch/nct_394/${USER}}/results/mn5_cpu"
 mkdir -p "${OUTPUT_DIR}"
+ 
+# 4. Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-${PROJECT_DIR}}"
+    cp "${SUBMIT_DIR}/ember_cpu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "ember_cpu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/ember_cpu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "ember_cpu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # ==============================================================================
-# FASE PREVIA: LIMPIEZA, CONFIGURACIÓN Y COMPILACIÓN EN NODO DE CÓMPUTO
+# PREPARATION PHASE: CLEAN, CONFIGURE AND COMPILE ON COMPUTE NODE
 # ==============================================================================
-echo ">>> [1/3] Limpiando compilación previa..."
+echo ">>> [1/3] Cleaning previous build..."
 rm -rf "${BUILD_DIR}"
 
-echo ">>> [2/3] Configurando CMake para CPU (Release)..."
+echo ">>> [2/3] Configuring CMake for CPU (Release)..."
 cmake -S "${PROJECT_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING=OFF \
@@ -46,32 +59,32 @@ cmake -S "${PROJECT_DIR}" -B "${BUILD_DIR}" \
     -DEMBER_ENABLE_MPI=OFF
 
 if [ $? -ne 0 ]; then
-    echo "ERROR: Falló la configuración de CMake."
+    echo "ERROR: CMake configuration failed."
     exit 1
 fi
 
-echo ">>> [3/3] Compilando con ${SLURM_CPUS_PER_TASK} núcleos..."
+echo ">>> [3/3] Compiling with ${SLURM_CPUS_PER_TASK} cores..."
 cmake --build "${BUILD_DIR}" -j ${SLURM_CPUS_PER_TASK}
 
 if [ $? -ne 0 ]; then
-    echo "ERROR: Falló la compilación del proyecto."
+    echo "ERROR: Project build failed."
     exit 1
 fi
 
 EMBER_BIN="${BUILD_DIR}/ember"
 
 if [ ! -f "${EMBER_BIN}" ]; then
-    echo "ERROR: No se encontró el binario en ${EMBER_BIN}"
+    echo "ERROR: Binary not found at ${EMBER_BIN}"
     exit 1
 fi
 
 echo "=================================================="
-echo "Compilación exitosa. Información de CPU en nodo de cómputo:"
+echo "Build succeeded. CPU information on compute node:"
 lscpu | grep "Model name\|CPU(s):\|Thread(s) per core:"
 echo "=================================================="
 
 # ==============================================================================
-# FASE DE EJECUCIÓN (EMBER BASELINE CPU)
+# EXECUTION PHASE (EMBER BASELINE CPU)
 # ==============================================================================
 srun --cpus-per-task=${SLURM_CPUS_PER_TASK} \
     "${EMBER_BIN}" \
@@ -87,4 +100,4 @@ srun --cpus-per-task=${SLURM_CPUS_PER_TASK} \
     --output "${OUTPUT_DIR}"
 
 echo "=================================================="
-echo "Simulación finalizada. Resultados guardados en: ${OUTPUT_DIR}"
+echo "Simulation finished. Results saved in: ${OUTPUT_DIR}"

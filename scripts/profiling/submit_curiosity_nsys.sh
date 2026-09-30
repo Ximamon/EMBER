@@ -19,7 +19,21 @@ echo "Date: $(date)"
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/profiling/curiosity_nsys/
+OUTPUT_DIR="results/profiling/curiosity_nsys"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cpu_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "cpu_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cpu_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "cpu_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # Light workload (2 scenarios) to capture CPU execution without disk bloat
 nsys profile \
@@ -27,7 +41,7 @@ nsys profile \
     --sample=process-tree \
     --backtrace=dwarf \
     --force-overwrite=true \
-    -o results/profiling/curiosity_nsys/ember_cpu_profile \
+    -o "${OUTPUT_DIR}/ember_cpu_profile" \
 ./build/ember \
     --width 1024 \
     --height 1024 \
@@ -38,7 +52,7 @@ nsys profile \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/profiling/curiosity_nsys/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "CPU profiling completed successfully."

@@ -24,7 +24,21 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/benchmarking/cuda/
+OUTPUT_DIR="results/benchmarking/cuda"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cuda_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cuda_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 ./build/ember \
     --width 2048 \
@@ -36,7 +50,7 @@ mkdir -p results/benchmarking/cuda/
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/benchmarking/cuda/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "Simulation completed successfully on NVIDIA A100 GPU."

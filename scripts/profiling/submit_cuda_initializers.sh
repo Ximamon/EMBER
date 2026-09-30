@@ -15,6 +15,22 @@ module load cuda12.8/toolkit/12.8.1
 module load Nsight-Systems/2026.2.1
 
 cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")/..}"
+report_dir="results/cuda_initializers_${SLURM_JOB_ID}"
+mkdir -p "$report_dir"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${report_dir}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cuda_init_${SLURM_JOB_ID}.out" "${report_dir}/" 2>/dev/null || cp "cuda_init_${SLURM_JOB_ID}.out" "${report_dir}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cuda_init_${SLURM_JOB_ID}.err" "${report_dir}/" 2>/dev/null || cp "cuda_init_${SLURM_JOB_ID}.err" "${report_dir}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
+
 if [[ -n "${EMBER_PREBUILT_EXECUTABLE:-}" ]]; then
     executable="$EMBER_PREBUILT_EXECUTABLE"
 else
@@ -24,7 +40,6 @@ else
     executable="$(pwd)/build-cuda-init/ember"
 fi
 
-report_dir="results/cuda_initializers_${SLURM_JOB_ID}"
 if [[ -n "${EMBER_BASELINE_EXECUTABLE:-}" ]]; then
     baseline_executable="$EMBER_BASELINE_EXECUTABLE"
 else

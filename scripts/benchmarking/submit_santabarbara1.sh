@@ -19,7 +19,21 @@ echo "Working directory: $(pwd)"
 echo "Date: $(date)"
 echo "=================================================="
 
-mkdir -p results/benchmarking/santabarbara1/
+OUTPUT_DIR="results/benchmarking/santabarbara1"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-/home/sb1user/EMBER}"
+    cp "${SUBMIT_DIR}/baseline_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "baseline_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/baseline_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "baseline_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 ./build/ember \
     --width 2048 \
@@ -31,7 +45,7 @@ mkdir -p results/benchmarking/santabarbara1/
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/benchmarking/santabarbara1/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "Simulation completed successfully on Santa Barbara 1."

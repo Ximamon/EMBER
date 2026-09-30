@@ -25,11 +25,25 @@ nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/profiling/cuda_ncu/
+OUTPUT_DIR="results/profiling/cuda_ncu"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/cuda_ncu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_ncu_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/cuda_ncu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "cuda_ncu_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # Profile 5 kernel executions of step_stencil_kernel with full hardware metrics
 ncu --import-source=yes --clock-control=none -k step_stencil_kernel -c 5 \
-    -o results/profiling/cuda_ncu/ember_cuda_profile --set=full -f \
+    -o "${OUTPUT_DIR}/ember_cuda_profile" --set=full -f \
 ./build/ember \
     --width 1024 \
     --height 1024 \
@@ -40,7 +54,7 @@ ncu --import-source=yes --clock-control=none -k step_stencil_kernel -c 5 \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/profiling/cuda_ncu/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "NCU kernel profiling completed successfully on NVIDIA A100 GPU."

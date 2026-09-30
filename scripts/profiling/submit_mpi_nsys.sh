@@ -28,7 +28,21 @@ scontrol show hostnames $SLURM_JOB_NODELIST
 echo "=================================================="
 
 cd ~/EMBER
-mkdir -p results/profiling/mpi_nsys/
+OUTPUT_DIR="results/profiling/mpi_nsys"
+mkdir -p "${OUTPUT_DIR}"
+
+# Log management: automatically copy .out and .err to results directory
+copy_logs() {
+    echo "=================================================="
+    echo "Copying Slurm logs (.out and .err) to ${OUTPUT_DIR}..."
+    sync
+    sleep 1
+    SUBMIT_DIR="${SLURM_SUBMIT_DIR:-.}"
+    cp "${SUBMIT_DIR}/mpi_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || cp "mpi_nsys_${SLURM_JOB_ID}.out" "${OUTPUT_DIR}/" 2>/dev/null || true
+    cp "${SUBMIT_DIR}/mpi_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || cp "mpi_nsys_${SLURM_JOB_ID}.err" "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Logs successfully copied."
+}
+trap copy_logs EXIT
 
 # Light workload (4 scenarios = 1 per node) to inspect MPI messaging without disk explosion
 mpirun -np 4 \
@@ -42,7 +56,7 @@ mpirun -np 4 \
     --sample=process-tree \
     --backtrace=dwarf \
     --force-overwrite=true \
-    -o results/profiling/mpi_nsys/ember_mpi_rank_%q{OMPI_COMM_WORLD_RANK} \
+    -o "${OUTPUT_DIR}/ember_mpi_rank_%q{OMPI_COMM_WORLD_RANK}" \
   ./build/ember \
     --width 1024 \
     --height 1024 \
@@ -53,7 +67,7 @@ mpirun -np 4 \
     --wind-strength 0.8 \
     --wind-direction 45 \
     --export none \
-    --output results/profiling/mpi_nsys/
+    --output "${OUTPUT_DIR}/"
 
 echo "=================================================="
 echo "MPI CPU profiling completed successfully."
