@@ -2,7 +2,7 @@
 #SBATCH --job-name=ember_mn5_cpu
 #SBATCH --account=nct_394
 #SBATCH --qos=gp_training
-#SBATCH --time=00:15:00
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --output=ember_cpu_%j.out
@@ -19,8 +19,8 @@ echo "=================================================="
 
 # 1. Load official module environment for CPU on MN5
 module purge
-module load gcc
-module load cmake
+module load gcc/13.2.0
+module load cmake/3.30.5
 
 # 2. Environment variables setup for OpenMP and Slurm
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
@@ -28,7 +28,7 @@ export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
 
 # 3. Path definitions (code in $HOME, outputs in $SCRATCH)
 PROJECT_DIR="${HOME}/EMBER"
-BUILD_DIR="${PROJECT_DIR}/build"
+BUILD_DIR="${PROJECT_DIR}/build_cpu"
 OUTPUT_DIR="${SCRATCH:-/gpfs/scratch/nct_394/${USER}}/results/mn5_cpu"
 mkdir -p "${OUTPUT_DIR}"
  
@@ -56,6 +56,7 @@ cmake -S "${PROJECT_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING=OFF \
     -DEMBER_ENABLE_CUDA=OFF \
+    -DEMBER_ENABLE_NVTX=OFF \
     -DEMBER_ENABLE_MPI=OFF
 
 if [ $? -ne 0 ]; then

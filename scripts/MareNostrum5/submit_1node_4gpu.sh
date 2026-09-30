@@ -2,7 +2,7 @@
 #SBATCH --job-name=ember_mn5_1node_4gpu
 #SBATCH --account=nct_394
 #SBATCH --qos=acc_training
-#SBATCH --time=00:20:00
+#SBATCH --time=00:30:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=20
@@ -22,14 +22,14 @@ echo "=================================================="
 
 # 1. Load official module stack for MPI + CUDA on MN5 ACC
 module purge
-module load gcc
-module load cmake
-module load cuda
-module load openmpi
+module load gcc/13.2.0
+module load cmake/3.30.5
+module load cuda/12.8
+module load openmpi/4.1.5-gcc
 
 # 2. Path definitions
 PROJECT_DIR="${HOME}/EMBER"
-BUILD_DIR="${PROJECT_DIR}/build"
+BUILD_DIR="${PROJECT_DIR}/build_1node_4gpu"
 OUTPUT_DIR="${SCRATCH:-/gpfs/scratch/nct_394/${USER}}/results/mn5_1node_4gpu"
 
 mkdir -p "${OUTPUT_DIR}"
@@ -58,6 +58,7 @@ cmake -S "${PROJECT_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING=OFF \
     -DEMBER_ENABLE_CUDA=ON \
+    -DEMBER_ENABLE_NVTX=OFF \
     -DEMBER_ENABLE_MPI=ON \
     -DCMAKE_CUDA_ARCHITECTURES=90
 

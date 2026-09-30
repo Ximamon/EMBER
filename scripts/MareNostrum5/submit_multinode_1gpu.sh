@@ -2,8 +2,8 @@
 #SBATCH --job-name=ember_mn5_multinode_1gpu
 #SBATCH --account=nct_394
 #SBATCH --qos=acc_training
-#SBATCH --time=00:20:00
-#SBATCH --nodes=2
+#SBATCH --time=00:30:00
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=20
 #SBATCH --gres=gpu:1
@@ -22,14 +22,14 @@ echo "=================================================="
 
 # 1. Load official module stack for MPI + CUDA on MN5 ACC
 module purge
-module load gcc
-module load cmake
-module load cuda
-module load openmpi
+module load gcc/13.2.0
+module load cmake/3.30.5
+module load cuda/12.8
+module load openmpi/4.1.5-gcc
 
 # 2. Path definitions
 PROJECT_DIR="${HOME}/EMBER"
-BUILD_DIR="${PROJECT_DIR}/build"
+BUILD_DIR="${PROJECT_DIR}/build_multinode_1gpu"
 OUTPUT_DIR="${SCRATCH:-/gpfs/scratch/nct_394/${USER}}/results/mn5_multinode_1gpu"
 
 mkdir -p "${OUTPUT_DIR}"
@@ -47,6 +47,17 @@ copy_logs() {
 }
 trap copy_logs EXIT
 
+# 4. Function to query and display GPUs used across assigned nodes
+show_gpu_info() {
+    echo "=================================================="
+    echo "GPU information across assigned nodes:"
+    for node in $(scontrol show hostnames "$SLURM_JOB_NODELIST"); do
+        echo ">>> Node: ${node}"
+        srun --nodes=1 --ntasks=1 -w "${node}" nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
+    done
+    echo "=================================================="
+}
+
 # ==============================================================================
 # PREPARATION PHASE: CLEAN, CONFIGURE AND COMPILE (MPI + CUDA sm_90)
 # ==============================================================================
@@ -58,6 +69,7 @@ cmake -S "${PROJECT_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING=OFF \
     -DEMBER_ENABLE_CUDA=ON \
+    -DEMBER_ENABLE_NVTX=OFF \
     -DEMBER_ENABLE_MPI=ON \
     -DCMAKE_CUDA_ARCHITECTURES=90
 
@@ -82,9 +94,8 @@ if [ ! -f "${EMBER_BIN}" ]; then
 fi
 
 echo "=================================================="
-echo "Build succeeded. GPU information on each node:"
-srun --ntasks-per-node=1 nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
-echo "=================================================="
+echo "Build succeeded."
+show_gpu_info
 
 # ==============================================================================
 # EXECUTION PHASE (MPI + CUDA MULTI-NODE)
