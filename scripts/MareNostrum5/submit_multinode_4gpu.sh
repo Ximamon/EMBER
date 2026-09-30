@@ -108,7 +108,7 @@ srun --cpus-per-task=${SLURM_CPUS_PER_TASK} \
     --width 4096 \
     --height 4096 \
     --steps 4096 \
-    --scenarios 160 \
+    --scenarios 320 \
     --seed 42 \
     --wind-direction 45 \
     --wind-strength 0.8 \
