@@ -129,8 +129,8 @@ def copernicus_tiles(bounds):
 def prepare_elevation(terrain_path, output, source=None):
     """Reproject only intersecting DEM tiles; preserve metric heights and valid-domain holes."""
     with rasterio.open(terrain_path) as terrain:
-        if terrain.crs is None or terrain.crs.to_epsg() not in (32629, 32630, 32631) or terrain.count != 1:
-            raise ValueError('terrain must be a single-band WGS84 UTM 29N, 30N or 31N raster')
+        if terrain.crs is None or terrain.crs.to_epsg() not in (32628, 32629, 32630, 32631, 3035) or terrain.count != 1:
+            raise ValueError('terrain must use WGS84 UTM 28N-31N or ETRS89 LAEA Europe')
         if (terrain.width * terrain.height > 16000000 or terrain.transform.a <= 0 or
                 terrain.transform.e != -terrain.transform.a or terrain.transform.b or terrain.transform.d):
             raise ValueError('terrain must have bounded square north-up cells')

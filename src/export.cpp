@@ -113,6 +113,10 @@ void export_terrain_run(const SimulationConfig& config) {
            << ",\n  \"base_spread\": " << config.base_spread << ", \"burn_rate\": " << config.burn_rate
            << ",\n  \"wind_direction_degrees\": " << config.wind_direction_degrees
            << ", \"wind_strength\": " << config.wind_strength
+           << ",\n  \"spread_model\": \"" << (config.spread_model == SpreadModel::Rothermel ? "rothermel" : "empirical") << '"'
+           << ", \"wind_speed_m_s\": " << config.wind_speed_m_s
+           << ", \"time_step_s\": " << config.rothermel_time_step_s
+           << ", \"min_spread_rate_m_s\": " << config.min_spread_rate_m_s
            << ",\n  \"max_steps\": " << config.max_steps << ", \"scenarios\": " << config.scenarios
            << ",\n  \"ignitions\": [";
     for (std::size_t i = 0; i < config.ignitions.size(); ++i) {

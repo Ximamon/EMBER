@@ -65,6 +65,31 @@ Cases can also be prepared around a mainland coordinate using `--latitude` and
 `--longitude`, with configurable grid size and resolution; see the
 [coordinate workflow](docs/real-environment.md#prepare-a-mainland-case-by-coordinates).
 
+## GUI launcher (Windows)
+
+`scripts/terrain_gui.py` is a Tkinter front-end for the three-command workflow
+above: it can build `ember` with CMake, run the simulation and call
+`tools/terrain/render.py`, then display the resulting PNG in the window. It
+only drives the existing scripts and executable as subprocesses; nothing in
+`tools/terrain/` is modified.
+
+```sh
+python scripts/terrain_gui.py
+```
+
+To get a double-clickable `.exe` that does not require an activated Python
+environment, build it once with PyInstaller from a venv that has it installed:
+
+```sh
+pyinstaller --name EmberTerrainGUI --onefile --windowed --distpath dist \
+  --workpath build/pyinstaller --specpath build scripts/terrain_gui.py
+```
+
+The resulting `dist/EmberTerrainGUI.exe` still needs CMake and a C++ compiler
+on the machine the first time it builds `ember`, and a Python interpreter with
+`numpy`/`matplotlib` (see its "Configuración" tab, which can set up a `.venv`
+automatically) to run `render.py`.
+
 ## Run synthetic terrain
 
 ```sh
@@ -83,6 +108,18 @@ Cases can also be prepared around a mainland coordinate using `--latitude` and
 Use `./build/ember --help` for every option. `--ignition X,Y` may be repeated; without it, the center cell is ignited. `--output` writes per-scenario and batch metrics to `summary.csv`. Add `--export csv`, `--export ppm` or `--export both` to write final grids.
 
 Wind direction is where the wind blows toward: 0 degrees is east and 90 degrees is north. Coordinates use `(x,y)` with `(0,0)` in the upper-left grid cell.
+
+## Rothermel spread model (experimental, CPU-only)
+
+An alternative to the default empirical model: a physical rate of spread (Rothermel, 1972) driving
+a per-cell burned-fraction accumulator instead of a per-step random draw.
+
+```sh
+./build/ember --spread-model rothermel --wind-speed 4 --time-step 60 --width 128 --height 128
+```
+
+See [docs/rothermel-model.md](docs/rothermel-model.md) for the equations, the fuel parameter
+placeholders, and what is deliberately left out of this first version.
 
 ## Metrics
 
@@ -114,6 +151,8 @@ separate from the scalar baseline.
 - [Simplified propagation model](docs/model.md)
 - [CUDA readiness notes](docs/cuda-readiness.md)
 - [CUDA initialization experiment](docs/cuda-initialization.md)
+- [Fire spread model research: physical vs. normalized empirical](docs/fire-models-research.md)
+- [Rothermel propagation model (experimental)](docs/rothermel-model.md)
 
 To generate and view the HTML API documentation locally using Doxygen:
 

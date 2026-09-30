@@ -28,13 +28,13 @@ int projection_epsg(const std::filesystem::path& path) {
     std::ifstream projection(projection_path);
     std::string crs((std::istreambuf_iterator<char>(projection)), std::istreambuf_iterator<char>());
     // The preparer writes WKT with an EPSG identifier for its metric CRS.
-    for (int epsg : {32629, 32630, 32631}) {
+    for (int epsg : {32628, 32629, 32630, 32631, 3035}) {
         const auto code = std::to_string(epsg);
         if (crs.find("AUTHORITY[\"EPSG\",\"" + code + "\"]") != std::string::npos ||
             crs.find("ID[\"EPSG\"," + code + "]") != std::string::npos)
             return epsg;
     }
-    throw std::invalid_argument("grid needs a .prj sidecar with WGS84 UTM 29N, 30N or 31N (metres)");
+    throw std::invalid_argument("grid needs a .prj sidecar with WGS84 UTM 28N-31N or ETRS89 LAEA Europe (metres)");
 }
 } // namespace
 
@@ -158,16 +158,16 @@ std::shared_ptr<const TerrainData> load_terrain(const std::filesystem::path& pat
         throw std::invalid_argument("terrain requires positive cellsize and NODATA_value 0");
     }
 
-    // Verify UTM coordinate extent to catch projection mismatches or flipped coordinates
+    // Retain a bounded metric CRS; LAEA supports a single grid across mainland zones.
+    terrain->epsg = projection_epsg(path);
     const double east = terrain->xllcorner + static_cast<double>(terrain->width) * terrain->cell_size_m;
     const double north = terrain->yllcorner + static_cast<double>(terrain->height) * terrain->cell_size_m;
-    if (!std::isfinite(east) || !std::isfinite(north) || terrain->xllcorner < 100000 || east > 900000 ||
+    const double minimum_east = terrain->epsg == 3035 ? 0 : 100000;
+    const double maximum_east = terrain->epsg == 3035 ? 10000000 : 900000;
+    if (!std::isfinite(east) || !std::isfinite(north) || terrain->xllcorner < minimum_east || east > maximum_east ||
         terrain->yllcorner < 0 || north > 10000000) {
-        throw std::invalid_argument("invalid UTM terrain extent");
+        throw std::invalid_argument("invalid metric terrain extent");
     }
-
-    // Verify and retain the metric CRS from the projection sidecar (.prj).
-    terrain->epsg = projection_epsg(path);
 
     // Allocate memory and stream grid cells row by row
     const auto count = terrain->width * terrain->height;
@@ -266,9 +266,10 @@ SimulationConfig resolve_terrain_config(SimulationConfig config) {
 #endif
 #if EMBER_ENABLE_CUDA
     // In v0.5.0, real terrain execution is restricted to CPU backends.
-    if (!config.terrain_path.empty() || config.terrain) {
+    if (!config.terrain_path.empty() || config.terrain)
         throw std::invalid_argument("real terrain requires a CPU build: EMBER_ENABLE_CUDA=OFF");
-    }
+    if (config.spread_model == SpreadModel::Rothermel)
+        throw std::invalid_argument("the Rothermel spread model requires a CPU build: EMBER_ENABLE_CUDA=OFF");   
 #endif
     // Load terrain before checking and aligning elevation data.
     if (!config.terrain && !config.terrain_path.empty()) {

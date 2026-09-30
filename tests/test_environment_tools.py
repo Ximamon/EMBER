@@ -188,6 +188,17 @@ class EnvironmentTests(unittest.TestCase):
             self.assertEqual(metadata['wind_conversion']['wind_direction_degrees'], 180)
             self.assertEqual(metadata['parameters']['moisture'], .2)
             self.assertEqual(case.read_json(first / 'run.json')['elevation_units'], 'metres')
+            for name in ('physical', 'physical-repeat'):
+                with patch.object(environment, 'urlopen', side_effect=AssertionError('unexpected network')):
+                    case.run_case(package, executable, directory / name, 10, steps=8, scenarios=2,
+                                  spread_model='rothermel', moisture=.05, time_step=60)
+            physical = directory / 'physical'
+            physical_meta = case.read_json(physical / 'run.json')
+            self.assertEqual(physical_meta['spread_model'], 'rothermel')
+            self.assertEqual(physical_meta['wind_speed_m_s'], 5)
+            self.assertEqual(physical_meta['time_step_s'], 60)
+            self.assertEqual((physical / 'scenario_000000_final.csv').read_bytes(),
+                             (directory / 'physical-repeat/scenario_000000_final.csv').read_bytes())
             with (first / 'scenario_000000_final.csv').open() as stream:
                 for i, row in enumerate(csv.DictReader(stream)):
                     if int(row['valid']):

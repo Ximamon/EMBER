@@ -94,10 +94,15 @@ def verify_case(directory):
 
 
 def run_case(directory, executable, output, reference, steps=500, scenarios=1, seed=42,
-             fuel=1.0, moisture=0.2, base_spread=0.25, burn_rate=0.2, ignitions=()):
+             fuel=1.0, moisture=0.2, base_spread=0.25, burn_rate=0.2, ignitions=(),
+             spread_model='empirical', time_step=60.0, min_spread_rate=0.0017):
     directory, executable, output = Path(directory).resolve(), Path(executable).resolve(), Path(output).resolve()
     manifest, weather = verify_case(directory)
     wind = wind_parameters(weather['values']['wind_speed_10m'], weather['values']['wind_direction_10m'], reference)
+    if (spread_model not in ('empirical', 'rothermel') or
+            not math.isfinite(time_step) or time_step <= 0 or
+            not math.isfinite(min_spread_rate) or min_spread_rate < 0):
+        raise ValueError('invalid spread model parameters')
     if (steps <= 0 or scenarios <= 0 or seed < 0 or
             not all(math.isfinite(v) for v in (fuel, moisture, base_spread, burn_rate)) or
             not 0 < fuel <= 1 or not 0 <= moisture <= 1 or not 0 <= base_spread <= 1 or not 0 < burn_rate <= 1):
@@ -121,6 +126,8 @@ def run_case(directory, executable, output, reference, steps=500, scenarios=1, s
                    '--base-spread', str(base_spread), '--burn-rate', str(burn_rate),
                    '--wind-direction', str(wind['wind_direction_degrees']),
                    '--wind-strength', str(wind['wind_strength'])]
+        command += ['--spread-model', spread_model, '--wind-speed', str(weather['values']['wind_speed_10m']),
+                    '--time-step', str(time_step), '--min-spread-rate', str(min_spread_rate)]
         for point in ignitions:
             command += ['--ignition', point]
         result = subprocess.run(command, check=True, capture_output=True, text=True)
@@ -132,7 +139,9 @@ def run_case(directory, executable, output, reference, steps=500, scenarios=1, s
                         elevation=read_json(inputs / 'elevation.json'), wind_conversion=wind,
                         parameters=dict(steps=steps, scenarios=scenarios, seed=seed, fuel=fuel,
                                         moisture=moisture, base_spread=base_spread, burn_rate=burn_rate,
-                                        ignitions=list(ignitions)),
+                                        ignitions=list(ignitions), spread_model=spread_model,
+                                        wind_speed_m_s=weather['values']['wind_speed_10m'],
+                                        time_step_s=time_step, min_spread_rate_m_s=min_spread_rate),
                         output_sha256={p.name: sha256(p) for p in staging.glob('*.csv')})
         write_json(staging / 'case-run.json', metadata)
         staging.rename(output)
@@ -165,6 +174,9 @@ def main():
     run.add_argument('--base-spread', type=float, default=.25)
     run.add_argument('--burn-rate', type=float, default=.2)
     run.add_argument('--ignition', action='append', default=[])
+    run.add_argument('--spread-model', choices=('empirical', 'rothermel'), default='empirical')
+    run.add_argument('--time-step', type=float, default=60, help='Rothermel simulated seconds per step')
+    run.add_argument('--min-spread-rate', type=float, default=.0017, help='Rothermel threshold in m/s')
     args = parser.parse_args()
     try:
         if args.action == 'prepare':
@@ -173,7 +185,8 @@ def main():
         else:
             output = run_case(args.directory, args.executable, args.output, args.wind_reference,
                               args.steps, args.scenarios, args.seed, args.terrain_fuel, args.terrain_moisture,
-                              args.base_spread, args.burn_rate, args.ignition)
+                              args.base_spread, args.burn_rate, args.ignition,
+                              args.spread_model, args.time_step, args.min_spread_rate)
         print(output)
     except subprocess.CalledProcessError as error:
         parser.exit(2, f'Simulation failed: {error.stderr}\n')

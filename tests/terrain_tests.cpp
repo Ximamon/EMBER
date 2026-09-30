@@ -12,6 +12,7 @@
 #include "ember/simulation.hpp"
 #include "ember/runner.hpp"
 #include "ember/cli.hpp"
+#include "ember/rothermel.hpp"
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -36,6 +37,15 @@ int main() {
         CHECK(terrain->xllcorner == 420000 && terrain->yllcorner == 4590000);
         CHECK(terrain->cell_size_m == 10 && terrain->codes.front() == 0 && terrain->codes.back() == 165);
         CHECK(terrain->valid_cells == 10 && terrain->combustible_cells == 6);
+        // National metric grids and Canary Islands use the same raster contract.
+        const auto projection_dir = std::filesystem::temp_directory_path() / "ember-national-projection-tests";
+        std::filesystem::create_directories(projection_dir);
+        std::filesystem::copy_file(fixture, projection_dir / "terrain.asc", std::filesystem::copy_options::overwrite_existing);
+        for (int epsg : {32628, 3035}) {
+            { std::ofstream out(projection_dir / "terrain.prj"); out << "ID[\"EPSG\"," << epsg << ']'; }
+            CHECK(ember::load_terrain(projection_dir / "terrain.asc")->epsg == epsg);
+        }
+        std::filesystem::remove_all(projection_dir);
         CHECK(!terrain->valid[0] && terrain->valid[1]);
         ember::SimulationConfig config;
         config.terrain = terrain;
@@ -117,6 +127,34 @@ int main() {
         CHECK(std::abs(probability(-5, 1, 0) - .375F) < 1e-6F);
         const float diagonal = 1 / std::sqrt(2.0F);
         CHECK(std::abs(probability(5, 1, 1) - .5F * (1 + .25F * diagonal) * diagonal) < 1e-6F);
+        // Check the actual Rothermel kernel with metric relief and diagonal geometry.
+        auto physical = relief;
+        physical.spread_model = ember::SpreadModel::Rothermel;
+        physical.terrain_moisture = .05F;
+        physical.wind_speed_m_s = 0;
+        physical.rothermel_time_step_s = 1;
+        physical.min_spread_rate_m_s = 0;
+        ember::WildfireSimulation physical_sim(physical, 0);
+        physical_sim.initialize();
+        auto input = physical_sim.grid().current_view();
+        for (std::size_t i = 0; i < 12; ++i) {
+            input.state[i] = ember::CellState::NonCombustible;
+            input.elevation[i] = 0;
+            input.fuel_class[i] = static_cast<std::uint8_t>(ember::FuelClass::Shrub);
+        }
+        input.state[5] = ember::CellState::Burning;
+        for (auto target : {6, 9, 10}) input.state[target] = ember::CellState::Unburned;
+        input.elevation[6] = 1; input.elevation[9] = -1; input.elevation[10] = 1;
+        physical_sim.step(0);
+        const auto reached = physical_sim.grid().current_view();
+        const auto params = ember::fuel_model_params(ember::FuelClass::Shrub);
+        const float uphill = ember::rothermel_spread_rate_m_s(params, .05F, 0, .1F) / 10;
+        const float downhill = ember::rothermel_spread_rate_m_s(params, .05F, 0, -.1F) / 10;
+        const float diagonal_front = ember::rothermel_spread_rate_m_s(params, .05F, 0, .1F * diagonal) * diagonal / 10;
+        CHECK(std::abs(reached.burn_fraction[6] - uphill) < 1e-7F);
+        CHECK(std::abs(reached.burn_fraction[9] - downhill) < 1e-7F);
+        CHECK(std::abs(reached.burn_fraction[10] - diagonal_front) < 1e-7F);
+        CHECK(uphill > downhill);
         auto no_terrain = ember::SimulationConfig{};
         no_terrain.elevation_path = elevation_path.string();
         rejects([&] { ember::resolve_terrain_config(no_terrain); });
