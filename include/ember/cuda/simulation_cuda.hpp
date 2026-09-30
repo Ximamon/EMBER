@@ -60,6 +60,7 @@ private:
     friend bool sync_and_download_slot(const SimulationConfig&, GridBuffers&,
                                        CudaWorkspace&, int, std::size_t&, CudaScenarioTimings&);
     friend bool sync_transfer_stream(CudaWorkspace&);
+    
     friend bool run_scenario_cuda(const SimulationConfig&, std::size_t, GridBuffers&,
                                   CudaWorkspace&, std::size_t&, CudaScenarioTimings&);
 

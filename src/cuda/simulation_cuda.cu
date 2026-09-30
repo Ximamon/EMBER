@@ -115,6 +115,13 @@ namespace ember {
     }
 
     /**
+     * @brief Clamps a float value to the [0.0, 1.0] range on the device.
+     */
+    __device__ __forceinline__ float cuda_clamp01(float value) {
+        return fminf(fmaxf(value, 0.0f), 1.0f);
+    }
+
+    /**
      * @brief CUDA kernel for on-device synthetic terrain initialization.
      * 
      * Generates fuel, moisture, vegetation, elevation, and initial burn states directly
@@ -154,28 +161,30 @@ namespace ember {
     {
         const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
         if (index >= count) return;
+
         const uint64_t key = static_cast<uint64_t>(index);
+
         float fuel = input_uniform_range(input_keyed_hash(seed, random_tag::fuel, key), min_fuel, max_fuel);
         moisture[index] = input_uniform_range(input_keyed_hash(seed, random_tag::moisture, key), min_moisture, max_moisture);
         vegetation[index] = input_uniform_range(input_keyed_hash(seed, random_tag::vegetation, key), min_vegetation, max_vegetation);
         elevation[index] = input_uniform_range(input_keyed_hash(seed, random_tag::elevation, key), min_elevation, max_elevation);
-        const double non_combustible_draw = static_cast<double>(input_keyed_hash(seed, random_tag::non_combustible, key) >> 11U) * 0x1.0p-53;
+
+        const double non_combustible_draw = static_cast<double>(
+            input_keyed_hash(seed, random_tag::non_combustible, key) >> 11U) * 0x1.0p-53;
+        
         CellState state = non_combustible_draw < non_combustible_fraction ? CellState::NonCombustible : CellState::Unburned;
+        
         bool ignite = ignition_count == 0 && index == center;
+        
         for (std::size_t i = 0; i < ignition_count; ++i) ignite |= ignitions[i] == index;
+        
         if (ignite) {
             state = CellState::Burning;
             fuel = fmaxf(fuel, burn_rate);
         }
+
         state_curr[index] = state_next[index] = state;
         fuel_curr[index] = fuel_next[index] = fuel;
-    }
-
-    /**
-     * @brief Clamps a float value to the [0.0, 1.0] range on the device.
-     */
-    __device__ __forceinline__ float cuda_clamp01(float value) {
-        return fminf(fmaxf(value, 0.0f), 1.0f);
     }
 
     // ============================================================================
@@ -194,10 +203,8 @@ namespace ember {
         float target_vegetation,
         float target_elevation,
         float neighbor_elevation,
-        int delta_x,
-        int delta_y,
-        float wind_x,
-        float wind_y,
+        int delta_x, int delta_y,
+        float wind_x, float wind_y,
         float wind_strength,
         float slope_scale,
         float base_spread)
@@ -233,6 +240,7 @@ namespace ember {
 
     /**
      * @brief 2D physical wildfire propagation kernel evaluating an 8-neighbor Moore stencil.
+     * This uses the old and basic fire spread model, CPU uses Rother's 8-neighbor stencil with short-circuit pruning.
      * 
      * Executed with 16x16 thread blocks. Evaluates state transitions:
      * - NonCombustible / Burned: Remains unchanged.
@@ -242,15 +250,13 @@ namespace ember {
      *   draws a pseudo-random number from `cuda_keyed_hash` to decide ignition.
      */
     __global__ void step_stencil_kernel(
-        int width,
-        int height,
+        int width, int height,
         uint64_t scenario_seed,
         uint64_t step_index,
         float base_spread,
         float burn_rate,
         float wind_strength,
-        float wind_x,
-        float wind_y,
+        float wind_x, float wind_y,
         float slope_scale,
         const float* __restrict__ fuel_in,
         float* __restrict__ fuel_out,
@@ -341,6 +347,7 @@ namespace ember {
             static_cast<uint64_t>(idx)
         ));
 
+        // If the random draw is less than the ignition probability, the cell ignites
         state_out[idx] = (draw < ignition_probability) ? CellState::Burning : CellState::Unburned;
     }
 
@@ -409,7 +416,7 @@ namespace ember {
         const nvtx::ScopedRange range("cuda.allocate", nvtx::purple, 2U);
         const auto start = std::chrono::steady_clock::now();
 
-        // 1. Crear los dos streams no bloqueantes independientes
+        // Create two independent non-blocking streams for compute and transfer operations
         if (!stream_compute_) {
             CUDA_CHECK(cudaStreamCreateWithFlags(&stream_compute_, cudaStreamNonBlocking));
         }
@@ -436,7 +443,7 @@ namespace ember {
                    allocate_one(&s.vegetation, bytes_float);
         };
 
-        // Reservar VRAM para Slot 0 y Slot 1 (~44 MB totales)
+        // Reserve VRAM for Slot 0 and Slot 1
         const bool ok = allocate_slot(slots_[0]) && allocate_slot(slots_[1]);
         seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         if (!ok) {
@@ -526,6 +533,7 @@ namespace ember {
                 workspace.ignition_indices_, count,
                 s.state_curr, s.state_next, s.fuel_curr, s.fuel_next,
                 s.moisture, s.vegetation, s.elevation);
+
             CUDA_CHECK(cudaGetLastError());
             timings.device_initialization_seconds =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -540,13 +548,14 @@ namespace ember {
             const nvtx::ScopedRange upload_range("cuda.host_to_device_async", nvtx::teal, 2U);
             const auto start = std::chrono::steady_clock::now();
 
-            // Bloquear páginas en RAM para transferir por DMA asíncrono real
+            // Block pinned memory for DMA transfers to avoid page faults during async copy
             cudaHostRegister(view.state, bytes_state, cudaHostRegisterDefault);
             cudaHostRegister(view.fuel, bytes_float, cudaHostRegisterDefault);
             cudaHostRegister(view.elevation, bytes_float, cudaHostRegisterDefault);
             cudaHostRegister(view.moisture, bytes_float, cudaHostRegisterDefault);
             cudaHostRegister(view.vegetation, bytes_float, cudaHostRegisterDefault);
 
+            // Asynchronous copy from host to device using the transfer stream
             CUDA_CHECK(cudaMemcpyAsync(s.state_curr, view.state, bytes_state, cudaMemcpyHostToDevice, workspace.stream_transfer_));
             CUDA_CHECK(cudaMemcpyAsync(s.fuel_curr, view.fuel, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
             CUDA_CHECK(cudaMemcpyAsync(s.elevation, view.elevation, bytes_float, cudaMemcpyHostToDevice, workspace.stream_transfer_));
@@ -632,7 +641,7 @@ namespace ember {
         const std::size_t bytes_float = num_cells * sizeof(float);
         auto& s = workspace.slots_[slot];
 
-        // Sincronizar únicamente el cómputo de la GPU
+        // Sync only the GPU compute stream to ensure all kernel executions are complete before downloading results
         {
             const nvtx::ScopedRange synchronize_range("cuda.synchronize", nvtx::red, 2U);
             CUDA_CHECK(cudaStreamSynchronize(workspace.stream_compute_));
@@ -674,10 +683,16 @@ namespace ember {
         CudaScenarioTimings& timings)
     {
         const nvtx::ScopedRange scenario_range("cuda.scenario", nvtx::blue, 1U);
+
         if (!upload_scenario_async(config, scenario_id, buffers, workspace, 0, timings)) return false;
+
         if (!sync_transfer_stream(workspace)) return false;
+
         unregister_scenario_host(config, buffers);
+
         if (!launch_scenario_kernel(config, scenario_id, workspace, 0)) return false;
+
         return sync_and_download_slot(config, buffers, workspace, 0, completed_steps, timings);
+        
     }
 } // namespace ember
