@@ -90,10 +90,10 @@ export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
 
 srun --cpus-per-task=${SLURM_CPUS_PER_TASK} \
     "${EMBER_BIN}" \
-    --width 1024 \
-    --height 1024 \
-    --steps 500 \
-    --scenarios 20 \
+    --width 2048 \
+    --height 2048 \
+    --steps 2048 \
+    --scenarios 80 \
     --seed 42 \
     --wind-direction 45 \
     --wind-strength 0.4 \
